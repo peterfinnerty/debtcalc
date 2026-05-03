@@ -117,10 +117,11 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 12px;
       cursor: pointer;
       user-select: none;
     }
-    .debt-card-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .debt-card-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
     .debt-card-name {
       font-size: 0.72rem;
       font-weight: 700;
@@ -130,17 +131,13 @@
       flex-shrink: 0;
     }
     .debt-card-summary {
-      display: none; align-items: center; gap: 8px; min-width: 0; overflow: hidden;
+      display: none; align-items: center; gap: 10px; min-width: 0; flex: 1;
     }
     .debt-card.collapsed .debt-card-summary { display: flex; }
     .summary-name {
       font-size: 0.875rem; font-weight: 600; color: var(--text);
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .summary-type {
-      font-size: 0.68rem; font-weight: 600; color: var(--text-muted);
-      background: var(--border); border-radius: 99px;
-      padding: 2px 8px; white-space: nowrap; flex-shrink: 0;
+      flex: 1; min-width: 0;
     }
     .summary-bal {
       font-size: 0.875rem; font-weight: 700; color: var(--text);
@@ -421,13 +418,19 @@
     .card-title { font-size: 0.875rem; font-weight: 700; margin-bottom: 14px; }
     .breakdown-list { display: flex; flex-direction: column; gap: 8px; }
     .breakdown-row {
-      display: flex; align-items: center; justify-content: space-between;
+      display: flex; align-items: flex-start; justify-content: space-between;
       padding: 10px 12px; background: var(--surface2);
       border-radius: var(--radius-sm); gap: 10px;
     }
     .breakdown-name { font-size: 0.875rem; font-weight: 600; flex: 1; min-width: 0; }
     .breakdown-name small { display: block; font-size: 0.71rem; color: var(--text-muted); font-weight: 400; margin-top: 1px; }
+    .breakdown-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
     .breakdown-amount { font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
+    .pi-bar { display: flex; width: 100px; height: 5px; border-radius: 99px; overflow: hidden; gap: 2px; }
+    .pi-bar-principal { background: var(--green); height: 100%; border-radius: 99px; }
+    .pi-bar-interest  { background: var(--avalanche); height: 100%; border-radius: 99px; flex: 1; }
+    .pi-labels { font-size: 0.68rem; color: var(--text-muted); white-space: nowrap; }
+    .pi-labels .pi-i { color: #c4824a; }
 
     /* Scenarios */
     .scenarios-card {
@@ -529,6 +532,19 @@
       to   { opacity: 1; transform: translateY(0); }
     }
     .fade-in { animation: fadeUp 0.35s ease both; }
+
+    /* Footer */
+    .app-footer {
+      text-align: center; padding: 20px 16px;
+      font-size: 0.75rem; color: var(--text-muted);
+      border-top: 1px solid var(--border);
+    }
+    .app-footer a {
+      color: var(--text-muted); text-decoration: none; font-weight: 500;
+    }
+    .app-footer a:hover { color: var(--text); }
+    .footer-sep { margin: 0 8px; opacity: 0.4; }
+
   </style>
 </head>
 <body>
@@ -657,6 +673,15 @@
         </div>
       </div>
 
+      <!-- Footer -->
+      <footer class="app-footer">
+        No data ever leaves your device.
+        <span class="footer-sep">·</span>
+        <a href="privacy.html">Privacy Policy</a>
+        <span class="footer-sep">·</span>
+        <a href="terms.html">Terms of Service</a>
+      </footer>
+
     </div>
   </div>
 </div>
@@ -739,7 +764,6 @@ function makeCard(id) {
         <span class="debt-card-name" id="debtLabel-${id}">Debt ${debts.length + 1}</span>
         <div class="debt-card-summary" id="debtSummary-${id}">
           <span class="summary-name" id="summaryName-${id}">Unnamed</span>
-          <span class="summary-type" id="summaryType-${id}">Credit Card</span>
           <span class="summary-bal" id="summaryBal-${id}"></span>
         </div>
       </div>
@@ -808,6 +832,7 @@ function makeCard(id) {
           </div>
         </div>
       </div>
+      <div id="bottomFields-${id}"></div>
     </div>`;
   return el;
 }
@@ -840,7 +865,7 @@ function onTypeChange(id) {
 function moneyPaymentField(id, debt) {
   const val = debt.minPayment ? fmtInput(debt.minPayment) : '';
   return `
-    <div class="field-row full" style="margin-top:4px">
+    <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:12px">
       <div class="field">
         <label>What I plan to pay each month</label>
         <div class="input-wrap has-prefix">
@@ -870,10 +895,11 @@ function refreshMinPreview(debt) {
 function updateCardForType(id, type) {
   const debt = debts.find(d => d.id === id);
   if (!debt) return;
-  const typeFieldsEl = document.getElementById('typeFields-' + id);
-  const calloutEl    = document.getElementById('callout-' + id);
-  const aprFieldEl   = document.getElementById('aprField-' + id);
-  const balanceRow   = document.getElementById('balanceRow-' + id);
+  const typeFieldsEl   = document.getElementById('typeFields-' + id);
+  const calloutEl      = document.getElementById('callout-' + id);
+  const bottomFieldsEl = document.getElementById('bottomFields-' + id);
+  const aprFieldEl     = document.getElementById('aprField-' + id);
+  const balanceRow     = document.getElementById('balanceRow-' + id);
   if (!typeFieldsEl || !calloutEl) return;
 
   // Balance row always visible for all types
@@ -882,6 +908,9 @@ function updateCardForType(id, type) {
   // Reset APR field
   const aprInput2 = aprFieldEl?.querySelector('input');
   if (aprInput2) { aprInput2.disabled = false; aprInput2.style.opacity = ''; }
+
+  // Clear bottom slot (student loan toggle); repopulate below if needed
+  if (bottomFieldsEl) bottomFieldsEl.innerHTML = '';
 
   switch (type) {
     // ── Credit Card ───────────────────────────────────────────
@@ -918,11 +947,14 @@ function updateCardForType(id, type) {
     // ── Student Loan ──────────────────────────────────────────
     case 'student_loan': {
       const lt = debt.loanType || 'federal';
-      typeFieldsEl.innerHTML = moneyPaymentField(id, debt) + `
-        <div class="plan-toggle" style="margin-top:10px">
-          <button class="plan-btn${lt==='federal'?' active':''}" onclick="setStudentLoanType(${id},'federal')">Federal</button>
-          <button class="plan-btn${lt==='private'?' active':''}" onclick="setStudentLoanType(${id},'private')">Private</button>
-        </div>`;
+      typeFieldsEl.innerHTML = moneyPaymentField(id, debt);
+      if (bottomFieldsEl) {
+        bottomFieldsEl.innerHTML = `
+          <div class="plan-toggle" style="margin-top:10px">
+            <button class="plan-btn${lt==='federal'?' active':''}" onclick="setStudentLoanType(${id},'federal')">Federal</button>
+            <button class="plan-btn${lt==='private'?' active':''}" onclick="setStudentLoanType(${id},'private')">Private</button>
+          </div>`;
+      }
       if (lt === 'federal') {
         calloutEl.className = 'debt-callout blue show';
         calloutEl.innerHTML = 'Federal loans have forgiveness options that make pay down strategies complicated. <a href="https://studentaid.gov/loan-simulator" target="_blank">Check studentaid.gov</a> to understand your options.';
@@ -993,7 +1025,7 @@ function setStudentLoanType(id, lt) {
   const debt = debts.find(d => d.id === id);
   if (!debt) return;
   debt.loanType = lt;
-  document.querySelectorAll(`#typeFields-${id} .plan-btn`).forEach(btn => {
+  document.querySelectorAll(`#bottomFields-${id} .plan-btn`).forEach(btn => {
     btn.classList.toggle('active', (lt==='federal' && btn.textContent==='Federal') || (lt==='private' && btn.textContent==='Private'));
   });
   const callout = document.getElementById('callout-' + id);
@@ -1092,11 +1124,9 @@ function updateDebtSummary(id) {
   const debt = debts.find(d => d.id === id);
   if (!debt) return;
   const nameEl = document.getElementById('summaryName-' + id);
-  const typeEl = document.getElementById('summaryType-' + id);
   const balEl  = document.getElementById('summaryBal-' + id);
   if (!nameEl) return;
   nameEl.textContent = debt.name || 'Unnamed';
-  typeEl.textContent = TYPE_LABELS[debt.debtType] || debt.debtType;
   balEl.textContent  = debt.balance ? fmt(debt.balance) : '';
 }
 
@@ -1584,21 +1614,29 @@ function renderBreakdown() {
   const sorted = [...r.breakdown];
   strategySort(sorted, activeTab);
   document.getElementById('breakdownList').innerHTML = sorted.map(d => {
-    const intStr = d.monthlyInterest > 0.01
-      ? `<span style="color:#c4824a">Interest: ${fmtDec(d.monthlyInterest)}</span> · Principal: ${fmtDec(d.principal)}`
-      : '';
     const badge = d.monthsPastDue >= 3
       ? `<span class="priority-badge urgent">Paying first · 3+ mo past due</span>`
       : d.monthsPastDue >= 1
       ? `<span class="priority-badge overdue">Paying second · past due</span>`
       : '';
+    const hasInterest = d.monthlyInterest > 0.01 && d.payment > 0;
+    const principalPct = hasInterest ? Math.round((d.principal / d.payment) * 100) : 100;
+    const piBar = hasInterest ? `
+      <div class="pi-bar">
+        <div class="pi-bar-principal" style="width:${principalPct}%"></div>
+        <div class="pi-bar-interest"></div>
+      </div>
+      <div class="pi-labels">${fmtDec(d.principal)} P &middot; <span class="pi-i">${fmtDec(d.monthlyInterest)} I</span></div>` : '';
     return `
       <div class="breakdown-row">
         <div class="breakdown-name">
           ${d.name || 'Unnamed debt'}${badge}
-          <small>${d.apr.toFixed(1)}% APR &middot; ${fmt(d.balance)} balance${intStr ? '<br>' + intStr : ''}</small>
+          <small>${d.apr.toFixed(1)}% APR &middot; ${fmt(d.balance)} balance</small>
         </div>
-        <div class="breakdown-amount">${fmtDec(d.payment)}/mo</div>
+        <div class="breakdown-right">
+          <div class="breakdown-amount">${fmtDec(d.payment)}/mo</div>
+          ${piBar}
+        </div>
       </div>`;
   }).join('');
 }
@@ -1755,12 +1793,13 @@ function encodeUrl() {
       e: extras.map(e => [e.amount, e.freq, e.targetId || '']),
     };
     const enc = btoa(JSON.stringify(state));
-    history.replaceState(null, '', location.pathname + '?p=' + enc);
+    history.replaceState(null, '', location.pathname + '#p=' + enc);
   } catch (_) {}
 }
 
 function decodeUrl() {
-  const p = new URLSearchParams(location.search).get('p');
+  const hash = location.hash.slice(1); // strip leading #
+  const p = new URLSearchParams(hash).get('p');
   if (!p) return false;
   try {
     const s = JSON.parse(atob(p));
