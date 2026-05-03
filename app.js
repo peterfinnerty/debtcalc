@@ -884,12 +884,35 @@ function renderBreakdown() {
   if (!r) return;
   const sorted = [...r.breakdown];
   strategySort(sorted, activeTab);
-  document.getElementById('breakdownList').innerHTML = sorted.map(d => {
+
+  // Map extra amounts onto debt rows: targeted → that debt; optimal → first priority debt
+  const activeExtras = extras.filter(e => e.amount > 0);
+  const extraByDebt  = {}; // debtId → array of extra labels
+  activeExtras.forEach(e => {
+    const isOneTime = e.freq === 'one_time';
+    const monthly   = monthlyEquiv(e);
+    const label     = isOneTime
+      ? `+${fmt(e.amount)} one-time`
+      : `+${fmtDec(monthly)}/mo extra`;
+    const targetId  = e.targetId
+      ? String(e.targetId)
+      : sorted.length ? String(sorted[0].id) : null;
+    if (targetId) {
+      if (!extraByDebt[targetId]) extraByDebt[targetId] = [];
+      extraByDebt[targetId].push(label);
+    }
+  });
+
+  const debtRows = sorted.map(d => {
     const badge = d.monthsPastDue >= 3
       ? `<span class="priority-badge urgent">Paying first · 3+ mo past due</span>`
       : d.monthsPastDue >= 1
       ? `<span class="priority-badge overdue">Paying second · past due</span>`
       : '';
+    const extraLabels = extraByDebt[String(d.id)] || [];
+    const extraBadge  = extraLabels.map(l =>
+      `<span class="extra-badge">${l}</span>`
+    ).join('');
     const hasInterest = d.monthlyInterest > 0.01 && d.payment > 0;
     const piLine = hasInterest
       ? `<div class="pi-labels">${fmtDec(d.principal)} principal &middot; <span class="pi-i">${fmtDec(d.monthlyInterest)} interest</span></div>`
@@ -897,7 +920,7 @@ function renderBreakdown() {
     return `
       <div class="breakdown-row">
         <div class="breakdown-name">
-          ${escHtml(d.name) || 'Unnamed debt'}${badge}
+          <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-height:1.4em">${escHtml(d.name) || 'Unnamed debt'}${badge}${extraBadge}</div>
           <small>${d.apr.toFixed(1)}% APR &middot; ${fmt(d.balance)} balance</small>
         </div>
         <div class="breakdown-right">
@@ -906,6 +929,8 @@ function renderBreakdown() {
         </div>
       </div>`;
   }).join('');
+
+  document.getElementById('breakdownList').innerHTML = debtRows;
 }
 
 // ==========================================================
@@ -918,15 +943,18 @@ function renderWarnings(valid, sim) {
   const raw = calcWarnings(valid, sim);
   if (!raw.length) { panel.style.display = 'none'; return; }
 
+  const dangerIcon  = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;margin-top:3px"><circle cx="7" cy="7" r="6.5" stroke="#8b3428" stroke-width="1.3"/><path d="M7 4v3.5" stroke="#8b3428" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="10" r="0.75" fill="#8b3428"/></svg>`;
+  const cautionIcon = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;margin-top:3px"><circle cx="7" cy="7" r="6.5" stroke="#7a4a20" stroke-width="1.3"/><path d="M7 4v3.5" stroke="#7a4a20" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="10" r="0.75" fill="#7a4a20"/></svg>`;
+
   const htmlItems = raw.map(w => {
     if (w.type === 'interest-exceeds-payment') {
-      return `<div class="warning-item danger"><strong>${escHtml(w.label)}</strong>: your payment only covers the interest — your balance will never go down. You need to pay at least <strong>${fmt(w.minNeeded)}/mo</strong> to start making progress.</div>`;
+      return `<div class="warning-item danger" style="display:flex;align-items:flex-start;gap:8px">${dangerIcon}<span><strong>${escHtml(w.label)}</strong>: your payment only covers the interest — your balance will never go down. You need to pay at least <strong>${fmt(w.minNeeded)}/mo</strong> to start making progress.</span></div>`;
     }
     if (w.type === 'no-payoff') {
-      return `<div class="warning-item danger"><strong>No payoff date found.</strong> We couldn't calculate when you'll be debt-free with your current payments. Try increasing your monthly payment.</div>`;
+      return `<div class="warning-item danger" style="display:flex;align-items:flex-start;gap:8px">${dangerIcon}<span><strong>No payoff date found.</strong> We couldn't calculate when you'll be debt-free with your current payments. Try increasing your monthly payment.</span></div>`;
     }
     if (w.type === 'federal-loan-high-apr') {
-      return `<div class="warning-item caution"><strong>${escHtml(w.label)}</strong>: ${w.apr.toFixed(1)}% APR is high for a federal student loan. Double-check your rate — federal loans are typically below 8%.</div>`;
+      return `<div class="warning-item caution" style="display:flex;align-items:flex-start;gap:8px">${cautionIcon}<span><strong>${escHtml(w.label)}</strong>: ${w.apr.toFixed(1)}% APR is high for a federal student loan. Double-check your rate — federal loans are typically below 8%.</span></div>`;
     }
     return '';
   }).filter(Boolean);
@@ -960,37 +988,6 @@ function renderPayoffTimeline() {
   if (schedLink) schedLink.href = 'amortization.html' + location.hash;
 
   card.style.display = '';
-}
-
-// ==========================================================
-//  RENDER SCENARIOS
-// ==========================================================
-function renderScenarios() {
-  const base = activeTab === 'avalanche' ? lastAv : lastSb;
-  if (!base) return;
-  const eb = extrasBreakdown();
-  const valid = debts.filter(d => {
-    if (!d.balance || d.balance <= 0) return false;
-    if (d.debtType === 'credit_card')  return d.useMinimum || d.minPayment > 0;
-    if (d.debtType === 'student_loan') return d.minPayment > 0;
-    return d.minPayment > 0;
-  });
-
-  document.getElementById('scenarioList').innerHTML = [50, 100, 200].map(bumpAmt => {
-    const r = simulate(valid, { optimal: eb.optimal + bumpAmt, oneTime: eb.oneTime, targeted: eb.targeted }, activeTab);
-    if (!r) return '';
-    const moSaved = base.months - r.months;
-    const intSaved = base.interest - r.interest;
-    return `
-      <div class="scenario-row">
-        <div class="scenario-amount">+${fmt(bumpAmt)}/mo</div>
-        <div class="scenario-date">
-          Debt-free <strong>${r.freeDate}</strong>
-          ${moSaved > 0 ? `<br><small>${monthsLabel(moSaved)} sooner</small>` : ''}
-        </div>
-        <div class="scenario-saved">${intSaved > 1 ? 'Save ' + fmt(intSaved) : ''}</div>
-      </div>`;
-  }).join('');
 }
 
 // ==========================================================
@@ -1093,7 +1090,6 @@ function setTab(tab) {
   encodeUrl(); // persist strategy to hash so amortization link stays in sync
   renderSummary();
   renderBreakdown();
-  renderScenarios();
   renderPayoffTimeline();
 }
 
@@ -1142,8 +1138,7 @@ function run() {
   const tabsWrap = document.getElementById('tabsWrap');
   tabsWrap.classList.toggle('strategies-same', identical);
   const strategiesSameNote = document.getElementById('strategiesSameNote');
-  strategiesSameNote.style.display = identical ? '' : 'none';
-  if (identical) strategiesSameNote.style.width = tabsWrap.offsetWidth + 'px';
+  strategiesSameNote.style.visibility = identical ? 'visible' : 'hidden';
   const legend = document.getElementById('chartLegend');
   if (legend) legend.style.display = identical ? 'none' : '';
 
@@ -1155,7 +1150,6 @@ function run() {
   if (document.getElementById('extraModal').classList.contains('open')) updatePreview();
   renderSummary();
   renderBreakdown();
-  renderScenarios();
   renderPayoffTimeline();
   renderWarnings(valid, lastAv);
   encodeUrl();

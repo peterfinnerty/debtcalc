@@ -199,12 +199,13 @@
     .past-due-toggle-label input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
 
     /* Priority badge in breakdown */
-    .priority-badge {
+    .priority-badge, .extra-badge {
       display: inline-block; font-size: 0.64rem; font-weight: 700;
       padding: 1px 6px; border-radius: 99px; margin-left: 5px; vertical-align: middle;
     }
     .priority-badge.urgent  { background: #fdf0ee; color: #8b3428; }
     .priority-badge.overdue { background: var(--amber-light); color: #7a4a20; }
+    .extra-badge { background: var(--green-light); color: var(--green); border: 1px solid rgba(90,138,106,0.2); }
 
     /* Info icon (tooltip handled via JS fixed overlay) */
     .info-tooltip { display: inline-flex; align-items: center; flex-shrink: 0; }
@@ -565,27 +566,6 @@
     .pi-labels { font-size: 0.68rem; color: var(--text-muted); white-space: nowrap; }
     .pi-labels .pi-i { color: #c4824a; }
 
-    /* Scenarios */
-    .scenarios-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-sm);
-    }
-    .card-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; margin-bottom: 14px; }
-    .scenario-list { display: flex; flex-direction: column; gap: 8px; }
-    .scenario-row {
-      display: grid; grid-template-columns: 90px 1fr auto;
-      align-items: center; gap: 12px;
-      padding: 11px 14px; border-radius: var(--radius-sm);
-      background: var(--surface2); transition: background var(--transition);
-      cursor: default;
-    }
-    .scenario-row:hover { background: var(--green-light); }
-    .scenario-amount { font-size: 0.9rem; font-weight: 800; color: var(--green); }
-    .scenario-date { font-size: 0.82rem; line-height: 1.4; }
-    .scenario-date strong { font-weight: 700; }
-    .scenario-date small { color: var(--green); font-size: 0.74rem; }
-    .scenario-saved { font-size: 0.75rem; color: var(--text-muted); text-align: right; white-space: nowrap; }
-
     /* Payoff timeline */
     .payoff-timeline-card {
       background: var(--surface); border: 1px solid var(--border);
@@ -651,8 +631,6 @@
       .left-panel { border-right: none; border-bottom: 1px solid var(--border); }
       .chart-legend { display: none; }
       .summary-grid { grid-template-columns: 1fr 1fr; }
-      .scenario-row { grid-template-columns: 80px 1fr; }
-      .scenario-saved { display: none; }
     }
     @media (max-width: 500px) {
       header { padding: 14px 16px; }
@@ -806,7 +784,7 @@
             <span class="info-tooltip" data-tip="Pay off your smallest balance first. Builds momentum with quick wins — great if you need motivation to stay on track."><i class="info-icon">i</i></span>
           </button>
         </div>
-        <div id="strategiesSameNote" style="display:none" class="strategies-same-note">Both strategies give the same result for your debts.</div>
+        <div id="strategiesSameNote" style="visibility:hidden" class="strategies-same-note">Both strategies give the same result for your debts.</div>
         </div>
         <div id="summaryArea"></div>
       </div>
@@ -815,13 +793,6 @@
       <div class="breakdown-card fade-in" style="margin-bottom:24px">
         <div class="card-title">Monthly payment priority</div>
         <div class="breakdown-list" id="breakdownList"></div>
-      </div>
-
-      <!-- Scenarios -->
-      <div class="scenarios-card fade-in" style="margin-bottom:24px">
-        <div class="card-title">What if you paid a little more?</div>
-        <div class="card-sub">See how small changes speed up your payoff date.</div>
-        <div class="scenario-list" id="scenarioList"></div>
       </div>
 
       <!-- Per-debt payoff timeline -->
