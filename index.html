@@ -20,7 +20,7 @@
   <meta name="twitter:title" content="To Zero — Debt Payoff Calculator">
   <meta name="twitter:description" content="See exactly when you'll be debt free and how much interest you'll save.">
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" integrity="sha512-CQBWl4fJHWbryGE+Pc7UAxWMUMNMWzWxF4SQo9CgkJIN1kx6djDQZjh3Y8SZ1d+6I+1zze6Z7kHXO7q3UyZAWw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="simulation.js"></script>
   <!-- Tally popup embed -->
   <script async src="https://tally.so/widgets/embed.js"></script>
@@ -1249,7 +1249,7 @@ function buildTargetOptions(selectedId) {
   if (eligible.length > 1) opts.push(`<option value="">Whatever is optimal</option>`);
   eligible.forEach(d => {
     const sel = selectedId == d.id ? ' selected' : '';
-    opts.push(`<option value="${d.id}"${sel}>${d.name || 'Debt ' + d.id}</option>`);
+    opts.push(`<option value="${d.id}"${sel}>${escHtml(d.name) || 'Debt ' + d.id}</option>`);
   });
   return opts.join('');
 }
@@ -1317,7 +1317,7 @@ function showRecommendation(eid) {
     rec.className = 'extra-rec good show';
   } else {
     const aprDiff = (optimalDebt.apr - chosenDebt.apr).toFixed(1);
-    rec.innerHTML = `<strong>${optimalDebt.name || 'Debt with highest APR'}</strong> is charging ${optimalDebt.apr.toFixed(1)}% vs ${chosenDebt.apr.toFixed(1)}% — putting this toward that debt first would save more in interest (${aprDiff}% difference).`;
+    rec.innerHTML = `<strong>${escHtml(optimalDebt.name) || 'Debt with highest APR'}</strong> is charging ${optimalDebt.apr.toFixed(1)}% vs ${chosenDebt.apr.toFixed(1)}% — putting this toward that debt first would save more in interest (${aprDiff}% difference).`;
     rec.className = 'extra-rec tip show';
   }
 }
@@ -1492,7 +1492,7 @@ function renderBreakdown() {
     return `
       <div class="breakdown-row">
         <div class="breakdown-name">
-          ${d.name || 'Unnamed debt'}${badge}
+          ${escHtml(d.name) || 'Unnamed debt'}${badge}
           <small>${d.apr.toFixed(1)}% APR &middot; ${fmt(d.balance)} balance</small>
         </div>
         <div class="breakdown-right">
@@ -1515,13 +1515,13 @@ function renderWarnings(valid, sim) {
 
   const htmlItems = raw.map(w => {
     if (w.type === 'interest-exceeds-payment') {
-      return `<div class="warning-item danger"><strong>${w.label}</strong>: your payment only covers the interest — your balance will never go down. You need to pay at least <strong>${fmt(w.minNeeded)}/mo</strong> to start making progress.</div>`;
+      return `<div class="warning-item danger"><strong>${escHtml(w.label)}</strong>: your payment only covers the interest — your balance will never go down. You need to pay at least <strong>${fmt(w.minNeeded)}/mo</strong> to start making progress.</div>`;
     }
     if (w.type === 'no-payoff') {
       return `<div class="warning-item danger"><strong>No payoff date found.</strong> We couldn't calculate when you'll be debt-free with your current payments. Try increasing your monthly payment.</div>`;
     }
     if (w.type === 'federal-loan-high-apr') {
-      return `<div class="warning-item caution"><strong>${w.label}</strong>: ${w.apr.toFixed(1)}% APR is high for a federal student loan. Double-check your rate — federal loans are typically below 8%.</div>`;
+      return `<div class="warning-item caution"><strong>${escHtml(w.label)}</strong>: ${w.apr.toFixed(1)}% APR is high for a federal student loan. Double-check your rate — federal loans are typically below 8%.</div>`;
     }
     return '';
   }).filter(Boolean);
@@ -1547,7 +1547,7 @@ function renderPayoffTimeline() {
     return `
       <div class="payoff-row">
         <div class="payoff-dot" style="background:${col}"></div>
-        <div class="payoff-name">${d.name || 'Unnamed debt'}</div>
+        <div class="payoff-name">${escHtml(d.name) || 'Unnamed debt'}</div>
         <div class="payoff-date"><strong>${monthsLabel(d.month)}</strong> from now · ${monthsToDate(d.month)}</div>
       </div>`;
   }).join('');
@@ -1636,11 +1636,6 @@ function run() {
   lastAv = simulate(valid, eb, 'avalanche');
   lastSb = simulate(valid, eb, 'snowball');
   if (!lastAv || !lastSb) return;
-
-  // Debug: log both histories so divergence can be verified
-  console.log('[ToZero] Avalanche history (monthly balances):', lastAv.history.slice(0, 24));
-  console.log('[ToZero] Snowball  history (monthly balances):', lastSb.history.slice(0, 24));
-  console.log('[ToZero] Same?', JSON.stringify(lastAv.history) === JSON.stringify(lastSb.history));
 
   // Chart subtitle
   const total = valid.reduce((s, d) => s + d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0), 0);

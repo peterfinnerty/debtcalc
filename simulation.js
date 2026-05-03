@@ -2,6 +2,14 @@
 // Extracted from index.html so tests can import without the full DOM/UI.
 
 // ==========================================================
+//  SECURITY HELPER
+// ==========================================================
+// Escape user-supplied strings before inserting into innerHTML.
+function escHtml(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ==========================================================
 //  FORMATTERS
 // ==========================================================
 const fmt = n =>
