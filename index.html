@@ -21,6 +21,8 @@
   <meta name="twitter:description" content="See exactly when you'll be debt free and how much interest you'll save.">
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <!-- Tally popup embed -->
+  <script async src="https://tally.so/widgets/embed.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -501,31 +503,6 @@
     }
     .copy-confirm.show { display: flex; }
 
-    /* Email CTA */
-    .cta-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow-sm);
-    }
-    .cta-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 4px; }
-    .cta-sub { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px; line-height: 1.45; }
-    .cta-form { display: flex; gap: 8px; }
-    .cta-form input { flex: 1; border-radius: 99px; padding: 9px 16px; }
-    .btn-cta {
-      padding: 9px 20px; border-radius: 99px;
-      background: var(--green); color: white; border: none;
-      font-size: 0.875rem; font-weight: 600; cursor: pointer;
-      transition: background var(--transition); white-space: nowrap;
-    }
-    .btn-cta:hover { background: #4a7a5a; }
-    .cta-fine {
-      font-size: 0.72rem; color: var(--text-muted); margin-top: 8px; text-align: center; line-height: 1.4;
-    }
-    .cta-thanks {
-      display: none; font-size: 0.875rem; color: var(--green);
-      font-weight: 600; padding: 6px 0; text-align: center;
-    }
-    .cta-thanks.show { display: block; }
 
     /* Responsive */
     @media (max-width: 860px) {
@@ -541,8 +518,6 @@
       .left-panel, .right-panel { padding: 20px 16px 32px; }
       .summary-grid { grid-template-columns: 1fr 1fr; }
       .s-value { font-size: 1.1rem; }
-      .cta-form { flex-direction: column; }
-      .btn-cta { width: 100%; text-align: center; }
     }
 
     @keyframes fadeUp {
@@ -678,25 +653,13 @@
         <div id="payoffTimelineList"></div>
       </div>
 
-      <!-- Email CTA -->
-      <div class="cta-card fade-in">
-        <div class="cta-title">Save your plan</div>
-        <div class="cta-sub">Enter your email and we'll send you a link back to this exact plan.</div>
-        <div class="cta-form" id="ctaForm">
-          <input type="email" id="ctaEmail" placeholder="your@email.com" autocomplete="email">
-          <button class="btn-cta" id="ctaBtn" onclick="submitEmail()">Email me my plan</button>
-        </div>
-        <div class="cta-fine" id="ctaFine">We'll occasionally send updates on new features. Unsubscribe anytime.</div>
-        <div class="cta-thanks" id="ctaThanks">
-          Your plan link is on its way. Check your inbox.
-        </div>
-      </div>
-
       <!-- Footer -->
       <footer class="app-footer">
         <a href="privacy.html">Privacy Policy</a>
         <span class="footer-sep">·</span>
         <a href="terms.html">Terms of Service</a>
+        <span class="footer-sep">·</span>
+        <a href="#" data-tally-open="J98LA7" data-tally-emoji-text="👋" data-tally-emoji-animation="wave">Give me feedback</a>
       </footer>
 
     </div>
@@ -1869,41 +1832,7 @@ function fallbackCopy(text, cb) {
   document.body.removeChild(el);
 }
 
-// ==========================================================
-//  EMAIL CTA
-// ==========================================================
-async function submitEmail() {
-  const emailEl = document.getElementById('ctaEmail');
-  const btn     = document.getElementById('ctaBtn');
-  const v = emailEl.value.trim();
-  if (!v || !v.includes('@')) { emailEl.focus(); return; }
-
-  btn.textContent = 'Sending…';
-  btn.disabled = true;
-
-  // Make sure the URL is up to date before capturing it
-  encodeUrl();
-  const shareUrl = location.href;
-
-  try {
-    const res = await fetch('https://formspree.io/f/YOUR_FORMSPREE_ID', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ email: v, plan_url: shareUrl }),
-    });
-    if (res.ok) {
-      document.getElementById('ctaForm').style.display = 'none';
-      document.getElementById('ctaFine').style.display = 'none';
-      document.getElementById('ctaThanks').classList.add('show');
-    } else {
-      btn.textContent = 'Try again';
-      btn.disabled = false;
-    }
-  } catch (_) {
-    btn.textContent = 'Try again';
-    btn.disabled = false;
-  }
-}
+// Email signup handled by Tally popup (data-tally-open="J98LA7")
 
 // ==========================================================
 //  TOOLTIP
