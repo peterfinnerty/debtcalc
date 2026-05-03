@@ -868,7 +868,7 @@ function moneyPaymentField(id, debt) {
       <div class="field">
         <label style="display:flex;align-items:center;gap:6px">
           What I plan to pay each month
-          <span class="info-tooltip pmt-warn" id="pmtWarn-${id}" onmouseenter="showInfoTooltip(this, window._pmtWarnText && window._pmtWarnText[${id}] || '')" onmouseleave="hideInfoTooltip()"><i class="warn-icon">!</i></span>
+          <span class="info-tooltip pmt-warn" id="pmtWarn-${id}" style="display:none" onmouseenter="showInfoTooltip(this, window._pmtWarnText && window._pmtWarnText[${id}] || '')" onmouseleave="hideInfoTooltip()"><i class="warn-icon">!</i></span>
         </label>
         <div class="input-wrap has-prefix">
           <span class="input-prefix">$</span>
@@ -948,13 +948,15 @@ function updateCardForType(id, type) {
       typeFieldsEl.innerHTML = `
         <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:12px">
           <div class="field">
-            <label>What I plan to pay each month</label>
+            <label style="display:flex;align-items:center;gap:6px">
+              What I plan to pay each month
+              ${useMin ? '' : `<span class="info-tooltip pmt-warn" id="pmtWarn-${id}" style="display:none" onmouseenter="showInfoTooltip(this, window._pmtWarnText && window._pmtWarnText[${id}] || '')" onmouseleave="hideInfoTooltip()"><i class="warn-icon">!</i></span>`}
+            </label>
             <div class="input-wrap${useMin ? '' : ' has-prefix'}">
               ${useMin ? '' : '<span class="input-prefix">$</span>'}
               <input type="text" inputmode="decimal" placeholder="${placeholder}" data-field="minPayment" data-id="${id}" autocomplete="off" value="${pmtVal}"${useMin ? ' disabled style="opacity:0.5;font-style:italic"' : ''}>
             </div>
           </div>
-          ${useMin ? '' : `<span class="info-tooltip pmt-warn" id="pmtWarn-${id}" style="display:none;margin-top:4px" onmouseenter="showInfoTooltip(this, window._pmtWarnText && window._pmtWarnText[${id}] || '')" onmouseleave="hideInfoTooltip()"><i class="warn-icon">!</i></span>`}
           <label class="checkbox-label" style="margin-top:10px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.8rem;color:var(--text-muted)">
             <input type="checkbox" data-field="useMinimum" data-id="${id}" onchange="onUseMinimumChange(${id})"${useMin ? ' checked' : ''}>
             I don't know — estimate the minimum
@@ -985,7 +987,7 @@ function updateCardForType(id, type) {
       }
       if (lt === 'federal') {
         calloutEl.className = 'debt-callout blue show';
-        calloutEl.innerHTML = 'Federal loans have forgiveness options that make pay down strategies complicated. <a href="https://studentaid.gov/loan-simulator" target="_blank">Check studentaid.gov</a> to understand your options.';
+        calloutEl.innerHTML = 'Federal loans have forgiveness options that can change the math significantly. <a href="https://studentaid.gov/loan-simulator" target="_blank">Check studentaid.gov</a> to understand your options.';
       } else {
         calloutEl.className = 'debt-callout';
         calloutEl.innerHTML = '';
@@ -1061,7 +1063,7 @@ function setStudentLoanType(id, lt) {
   if (callout) {
     if (lt === 'federal') {
       callout.className = 'debt-callout blue show';
-      callout.innerHTML = 'Federal loans have forgiveness options that make pay down strategies complicated. <a href="https://studentaid.gov/loan-simulator" target="_blank">Check studentaid.gov</a> to understand your options.';
+      callout.innerHTML = 'Federal loans have forgiveness options that can change the math significantly. <a href="https://studentaid.gov/loan-simulator" target="_blank">Check studentaid.gov</a> to understand your options.';
     } else {
       callout.className = 'debt-callout';
       callout.innerHTML = '';
