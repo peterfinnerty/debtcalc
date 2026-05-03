@@ -109,21 +109,50 @@
       padding: 16px;
       transition: border-color var(--transition);
     }
-    .debt-card:focus-within { border-color: var(--green); }
+    .debt-card:focus-within:not(.collapsed) { border-color: var(--green); }
+    .debt-card.collapsed { padding: 12px 16px; cursor: pointer; }
+    .debt-card.collapsed:hover { border-color: var(--green); }
 
     .debt-card-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 12px;
+      cursor: pointer;
+      user-select: none;
     }
+    .debt-card-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .debt-card-name {
-      font-size: 0.78rem;
+      font-size: 0.72rem;
       font-weight: 700;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.05em;
+      flex-shrink: 0;
     }
+    .debt-card-summary {
+      display: none; align-items: center; gap: 8px; min-width: 0; overflow: hidden;
+    }
+    .debt-card.collapsed .debt-card-summary { display: flex; }
+    .summary-name {
+      font-size: 0.875rem; font-weight: 600; color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .summary-type {
+      font-size: 0.68rem; font-weight: 600; color: var(--text-muted);
+      background: var(--border); border-radius: 99px;
+      padding: 2px 8px; white-space: nowrap; flex-shrink: 0;
+    }
+    .summary-bal {
+      font-size: 0.875rem; font-weight: 700; color: var(--text);
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .debt-chevron {
+      flex-shrink: 0; color: var(--text-muted); opacity: 0.5;
+      transition: transform var(--transition); display: flex; align-items: center;
+    }
+    .debt-card.collapsed .debt-chevron { transform: rotate(180deg); }
+    .debt-card-header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .debt-card-body { margin-top: 12px; }
 
     /* Debt callout (type-specific notices) */
     .debt-callout {
@@ -198,7 +227,7 @@
     .field-row:last-child { margin-bottom: 0; }
 
     .field { display: flex; flex-direction: column; gap: 4px; }
-    .field label { font-size: 0.73rem; color: var(--text-muted); font-weight: 500; }
+    .field label { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; }
 
     .input-wrap { position: relative; display: flex; align-items: center; }
     .input-prefix {
@@ -398,9 +427,6 @@
     }
     .breakdown-name { font-size: 0.875rem; font-weight: 600; flex: 1; min-width: 0; }
     .breakdown-name small { display: block; font-size: 0.71rem; color: var(--text-muted); font-weight: 400; margin-top: 1px; }
-    .breakdown-bar-wrap { width: 70px; flex-shrink: 0; }
-    .breakdown-bar { height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; }
-    .breakdown-fill { height: 100%; border-radius: 99px; transition: width 0.5s ease; }
     .breakdown-amount { font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
 
     /* Scenarios */
@@ -423,6 +449,24 @@
     .scenario-date strong { font-weight: 700; }
     .scenario-date small { color: var(--green); font-size: 0.74rem; }
     .scenario-saved { font-size: 0.75rem; color: var(--text-muted); text-align: right; white-space: nowrap; }
+
+    /* Payoff timeline */
+    .payoff-timeline-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-sm);
+    }
+    .payoff-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+    }
+    .payoff-row:last-child { border-bottom: none; }
+    .payoff-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      background: var(--green);
+    }
+    .payoff-name { font-size: 0.875rem; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .payoff-date { font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; }
+    .payoff-date strong { color: var(--text); font-weight: 700; }
 
     /* Actions */
     .actions-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -542,7 +586,7 @@
 
     <div id="results" style="display:none">
 
-      <!-- Warnings -->
+      <!-- Critical warnings (negative amortization only) -->
       <div id="warningsPanel" style="display:none;margin-bottom:24px" class="warnings-panel fade-in"></div>
 
       <!-- Chart -->
@@ -571,11 +615,11 @@
         <div class="tabs-wrap">
           <button class="tab-btn tab-av" id="tabAv" onclick="setTab('avalanche')">
             Avalanche
-            <span class="badge badge-green" id="avBadge" style="display:none">Saves more</span>
+            <span class="info-tooltip" onmouseenter="showInfoTooltip(this,'Pay off your highest-interest debt first. Minimizes total interest paid — the mathematically optimal strategy.')" onmouseleave="hideInfoTooltip()" onclick="event.stopPropagation()"><i class="info-icon">i</i></span>
           </button>
           <button class="tab-btn" id="tabSb" onclick="setTab('snowball')">
             Snowball
-            <span class="badge badge-blue" id="sbBadge" style="display:none">Faster</span>
+            <span class="info-tooltip" onmouseenter="showInfoTooltip(this,'Pay off your smallest balance first. Builds momentum with quick wins — great if you need motivation to stay on track.')" onmouseleave="hideInfoTooltip()" onclick="event.stopPropagation()"><i class="info-icon">i</i></span>
           </button>
         </div>
         <div id="summaryArea"></div>
@@ -592,6 +636,12 @@
         <div class="card-title">What if you paid a little more?</div>
         <div class="card-sub">See how small changes speed up your payoff date.</div>
         <div class="scenario-list" id="scenarioList"></div>
+      </div>
+
+      <!-- Per-debt payoff timeline -->
+      <div class="payoff-timeline-card fade-in" id="payoffTimelineCard" style="display:none;margin-bottom:24px">
+        <div class="card-title">When each debt gets paid off</div>
+        <div id="payoffTimelineList"></div>
       </div>
 
       <!-- Email CTA -->
@@ -684,60 +734,76 @@ function makeCard(id) {
     `<option value="${t.value}"${t.value === 'credit_card' ? ' selected' : ''}>${t.label}</option>`
   ).join('');
   el.innerHTML = `
-    <div class="debt-card-header">
-      <span class="debt-card-name">Debt ${debts.length + 1}</span>
-      <button class="btn-remove" onclick="removeDebt(${id})">
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-          <path d="M1.5 1.5l10 10M11.5 1.5l-10 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
-      </button>
-    </div>
-    <div class="field-row full">
-      <div class="field">
-        <label>Type</label>
-        <select data-field="debtType" data-id="${id}" onchange="onTypeChange(${id})">${typeOpts}</select>
-      </div>
-    </div>
-    <div class="field-row full">
-      <div class="field">
-        <label>Name</label>
-        <input type="text" placeholder="e.g. Chase Visa" data-field="name" data-id="${id}">
-      </div>
-    </div>
-    <div class="field-row" id="balanceRow-${id}">
-      <div class="field">
-        <label>Balance owed</label>
-        <div class="input-wrap has-prefix">
-          <span class="input-prefix">$</span>
-          <input type="text" inputmode="decimal" placeholder="5,000" data-field="balance" data-id="${id}" autocomplete="off">
+    <div class="debt-card-header" onclick="toggleDebt(${id})">
+      <div class="debt-card-header-left">
+        <span class="debt-card-name" id="debtLabel-${id}">Debt ${debts.length + 1}</span>
+        <div class="debt-card-summary" id="debtSummary-${id}">
+          <span class="summary-name" id="summaryName-${id}">Unnamed</span>
+          <span class="summary-type" id="summaryType-${id}">Credit Card</span>
+          <span class="summary-bal" id="summaryBal-${id}"></span>
         </div>
       </div>
-      <div class="field" id="aprField-${id}">
-        <label>Interest rate</label>
-        <div class="input-wrap has-suffix">
-          <input type="number" placeholder="19.9" data-field="apr" data-id="${id}" min="0" max="100" step="0.1">
-          <span class="input-suffix">%</span>
-        </div>
+      <div class="debt-card-header-right">
+        <button class="btn-remove" id="btnRemove-${id}" onclick="event.stopPropagation();removeDebt(${id})">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M1.5 1.5l10 10M11.5 1.5l-10 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <span class="debt-chevron" id="debtChevron-${id}">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
       </div>
     </div>
-    <div id="typeFields-${id}"></div>
-    <div class="debt-callout" id="callout-${id}"></div>
-    <div class="past-due-section">
-      <label class="past-due-toggle-label">
-        <input type="checkbox" data-field="pastDue" data-id="${id}" onchange="onPastDueChange(${id})">
-        <span>Past due?</span>
-      </label>
-      <div id="pastDueFields-${id}" style="display:none;margin-top:8px">
-        <div class="field-row">
-          <div class="field">
-            <label>Months past due</label>
-            <input type="number" placeholder="1" data-field="monthsPastDue" data-id="${id}" min="0" step="1">
+    <div class="debt-card-body" id="debtBody-${id}">
+      <div class="field-row full">
+        <div class="field">
+          <label>Type</label>
+          <select data-field="debtType" data-id="${id}" onchange="onTypeChange(${id})">${typeOpts}</select>
+        </div>
+      </div>
+      <div class="field-row full">
+        <div class="field">
+          <label>Name</label>
+          <input type="text" placeholder="e.g. Chase Visa" data-field="name" data-id="${id}">
+        </div>
+      </div>
+      <div class="field-row" id="balanceRow-${id}">
+        <div class="field">
+          <label>Balance owed</label>
+          <div class="input-wrap has-prefix">
+            <span class="input-prefix">$</span>
+            <input type="text" inputmode="decimal" placeholder="5,000" data-field="balance" data-id="${id}" autocomplete="off">
           </div>
-          <div class="field">
-            <label>Past due amount</label>
-            <div class="input-wrap has-prefix">
-              <span class="input-prefix">$</span>
-              <input type="text" inputmode="decimal" placeholder="0" data-field="pastDueAmount" data-id="${id}" autocomplete="off">
+        </div>
+        <div class="field" id="aprField-${id}">
+          <label>Interest rate</label>
+          <div class="input-wrap has-suffix">
+            <input type="number" placeholder="19.9" data-field="apr" data-id="${id}" min="0" max="100" step="0.1">
+            <span class="input-suffix">%</span>
+          </div>
+        </div>
+      </div>
+      <div id="typeFields-${id}"></div>
+      <div class="debt-callout" id="callout-${id}"></div>
+      <div class="past-due-section">
+        <label class="past-due-toggle-label">
+          <input type="checkbox" data-field="pastDue" data-id="${id}" onchange="onPastDueChange(${id})">
+          <span>Past due?</span>
+        </label>
+        <div id="pastDueFields-${id}" style="display:none;margin-top:8px">
+          <div class="field-row">
+            <div class="field">
+              <label>Months past due</label>
+              <input type="number" placeholder="1" data-field="monthsPastDue" data-id="${id}" min="0" step="1">
+            </div>
+            <div class="field">
+              <label>Past due amount</label>
+              <div class="input-wrap has-prefix">
+                <span class="input-prefix">$</span>
+                <input type="text" inputmode="decimal" placeholder="0" data-field="pastDueAmount" data-id="${id}" autocomplete="off">
+              </div>
             </div>
           </div>
         </div>
@@ -766,6 +832,7 @@ function onTypeChange(id) {
   }
 
   updateCardForType(id, newType);
+  updateDebtSummary(id);
   bump();
 }
 
@@ -823,7 +890,7 @@ function updateCardForType(id, type) {
       const pmtVal = useMin ? '' : (debt.minPayment ? fmtInput(debt.minPayment) : '');
       const placeholder = useMin ? calcMinPreview(debt) : '150';
       typeFieldsEl.innerHTML = `
-        <div class="field-row full" style="margin-top:4px">
+        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:12px">
           <div class="field">
             <label>What I plan to pay each month</label>
             <div class="input-wrap${useMin ? '' : ' has-prefix'}">
@@ -831,12 +898,12 @@ function updateCardForType(id, type) {
               <input type="text" inputmode="decimal" placeholder="${placeholder}" data-field="minPayment" data-id="${id}" autocomplete="off" value="${pmtVal}"${useMin ? ' disabled style="opacity:0.5;font-style:italic"' : ''}>
             </div>
           </div>
-        </div>
-        <label class="checkbox-label" style="margin-top:10px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.88rem;color:var(--text-muted)">
-          <input type="checkbox" data-field="useMinimum" data-id="${id}" onchange="onUseMinimumChange(${id})"${useMin ? ' checked' : ''}>
-          I don't know — use the minimum
-          <span class="info-tooltip" onmouseenter="showInfoTooltip(this,'Minimum = max($25, 1% of balance + interest, 2% of balance). Recalculates each month as your balance drops.')" onmouseleave="hideInfoTooltip()"><i class="info-icon">i</i></span>
-        </label>`;
+          <label class="checkbox-label" style="margin-top:10px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.8rem;color:var(--text-muted)">
+            <input type="checkbox" data-field="useMinimum" data-id="${id}" onchange="onUseMinimumChange(${id})"${useMin ? ' checked' : ''}>
+            I don't know — use the minimum
+            <span class="info-tooltip" onmouseenter="showInfoTooltip(this,'Minimum = max($25, 1% of balance + interest, 2% of balance). Recalculates each month as your balance drops.')" onmouseleave="hideInfoTooltip()"><i class="info-icon">i</i></span>
+          </label>
+        </div>`;
       calloutEl.className = 'debt-callout';
       break;
     }
@@ -1000,6 +1067,9 @@ function addDebt(pre = {}) {
     }
   }
 
+  // Auto-collapse any other expanded debts so new card has focus
+  if (debts.length > 1) collapseAllDebts();
+
   renumber();
   bump();
 }
@@ -1016,6 +1086,52 @@ function renumber() {
   document.querySelectorAll('.debt-card-name').forEach((el, i) => el.textContent = 'Debt ' + (i + 1));
 }
 
+const TYPE_LABELS = { credit_card: 'Credit Card', loan: 'Loan', student_loan: 'Student Loan', other: 'Other' };
+
+function updateDebtSummary(id) {
+  const debt = debts.find(d => d.id === id);
+  if (!debt) return;
+  const nameEl = document.getElementById('summaryName-' + id);
+  const typeEl = document.getElementById('summaryType-' + id);
+  const balEl  = document.getElementById('summaryBal-' + id);
+  if (!nameEl) return;
+  nameEl.textContent = debt.name || 'Unnamed';
+  typeEl.textContent = TYPE_LABELS[debt.debtType] || debt.debtType;
+  balEl.textContent  = debt.balance ? fmt(debt.balance) : '';
+}
+
+function toggleDebt(id) {
+  const card    = document.querySelector(`.debt-card[data-id="${id}"]`);
+  const body    = document.getElementById('debtBody-' + id);
+  const remove  = document.getElementById('btnRemove-' + id);
+  if (!card || !body) return;
+
+  const isCollapsed = card.classList.contains('collapsed');
+  if (isCollapsed) {
+    card.classList.remove('collapsed');
+    body.style.display = '';
+    if (remove) remove.style.display = '';
+  } else {
+    updateDebtSummary(id);
+    card.classList.add('collapsed');
+    body.style.display = 'none';
+    if (remove) remove.style.display = 'none';
+  }
+}
+
+function collapseAllDebts() {
+  debts.forEach(d => {
+    const card   = document.querySelector(`.debt-card[data-id="${d.id}"]`);
+    const body   = document.getElementById('debtBody-' + d.id);
+    const remove = document.getElementById('btnRemove-' + d.id);
+    if (!card || card.classList.contains('collapsed')) return;
+    updateDebtSummary(d.id);
+    card.classList.add('collapsed');
+    body.style.display = 'none';
+    if (remove) remove.style.display = 'none';
+  });
+}
+
 // Money fields that need comma-formatting
 const MONEY_FIELDS = new Set(['balance', 'minPayment', 'pastDueAmount']);
 
@@ -1027,6 +1143,7 @@ document.getElementById('debtsList').addEventListener('input', e => {
 
   if (field === 'name') {
     debt.name = el.value;
+    updateDebtSummary(id);
     refreshExtraTargets();
   } else if (MONEY_FIELDS.has(field)) {
     const pos = el.selectionStart;
@@ -1037,6 +1154,7 @@ document.getElementById('debtsList').addEventListener('input', e => {
     try { el.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen)); } catch(_) {}
     debt[field] = parseFloat(raw) || 0;
     refreshMinPreview(debt);
+    if (field === 'balance') updateDebtSummary(id);
   } else if (field === 'apr') {
     debt.apr = parseFloat(el.value) || 0;
     refreshMinPreview(debt);
@@ -1253,6 +1371,7 @@ function simulate(source, eb, strategy) {
 
   const history = [pool.reduce((s, d) => s + d.b, 0)];
   let interest = 0, mo = 0;
+  const payoffMonths = {};
 
   while (mo < 600 && pool.some(d => d.b > 0.005)) {
     mo++;
@@ -1290,7 +1409,10 @@ function simulate(source, eb, strategy) {
       const p = Math.min(rem, d.b); d.b -= p; rem -= p;
     }
 
-    for (const d of pool) d.b = Math.max(0, d.b);
+    for (const d of pool) {
+      d.b = Math.max(0, d.b);
+      if (d.b < 0.005 && payoffMonths[d.id] === undefined) payoffMonths[d.id] = mo;
+    }
     history.push(pool.reduce((s, d) => s + d.b, 0));
   }
 
@@ -1299,6 +1421,7 @@ function simulate(source, eb, strategy) {
     totalPaid: source.reduce((s, d) => s + effBal(d), 0) + interest,
     freeDate: monthsToDate(mo), history,
     breakdown: firstMonthBreakdown(source, eb, strategy),
+    debtPayoffs: pool.map(d => ({ id: d.id, name: d.name, month: payoffMonths[d.id] ?? mo })),
   };
 }
 
@@ -1432,30 +1555,6 @@ function renderSummary() {
   const saved = o.interest - r.interest;
   const faster = o.months - r.months;
 
-  let insight = '';
-  if (activeTab === 'avalanche' && saved > 0.5)
-    insight = `Compared to Snowball, this saves you <strong>${fmt(saved)}</strong> in interest.`;
-  else if (activeTab === 'snowball' && faster > 0)
-    insight = `Snowball gets you debt-free <strong>${monthsLabel(faster)} sooner</strong> than Avalanche${saved < -0.5 ? `, but costs ${fmt(Math.abs(saved))} more in interest` : ''}.`;
-  else if (activeTab === 'snowball' && Math.abs(saved) > 0.5)
-    insight = `Avalanche would save you <strong>${fmt(Math.abs(saved))}</strong> in interest if you prefer to optimize for cost.`;
-
-  // Strategy recommendation
-  const validForRec = debts.filter(d => d.balance > 0);
-  if (validForRec.length >= 2 && !insight) {
-    const byApr     = [...validForRec].sort((a, b) => (b.apr||0) - (a.apr||0));
-    const byBalance = [...validForRec].sort((a, b) => a.balance - b.balance);
-    const maxApr = byApr[0].apr || 0;
-    const minApr = byApr[byApr.length - 1].apr || 0;
-    if (byApr[0].id === byBalance[0].id) {
-      insight = 'The highest-APR debt is also the smallest balance — both methods lead to the same result.';
-    } else if (validForRec.length >= 3 && extrasBreakdown().optimal < 100) {
-      insight = 'With several debts and limited extra funds, Snowball\'s quick wins can help you stay on track.';
-    } else if (maxApr - minApr > 5) {
-      insight = `There's a ${(maxApr - minApr).toFixed(0)}% APR gap between your debts — Avalanche could save you significantly more in interest.`;
-    }
-  }
-
   document.getElementById('summaryArea').innerHTML = `
     <div class="summary-grid">
       <div class="summary-card">
@@ -1473,8 +1572,7 @@ function renderSummary() {
         <div class="s-value">${fmt(r.totalPaid)}</div>
         <div class="s-sub">principal + interest</div>
       </div>
-    </div>
-    ${insight ? `<div class="insight-strip">${insight}</div>` : ''}`;
+    </div>`;
 }
 
 // ==========================================================
@@ -1485,10 +1583,7 @@ function renderBreakdown() {
   if (!r) return;
   const sorted = [...r.breakdown];
   strategySort(sorted, activeTab);
-  const maxP = Math.max(...sorted.map(d => d.payment));
   document.getElementById('breakdownList').innerHTML = sorted.map(d => {
-    const pct = maxP > 0 ? (d.payment / maxP) * 100 : 0;
-    const col = d.apr >= 20 ? '#b94a3a' : d.apr >= 12 ? '#c4824a' : '#5a8a6a';
     const intStr = d.monthlyInterest > 0.01
       ? `<span style="color:#c4824a">Interest: ${fmtDec(d.monthlyInterest)}</span> · Principal: ${fmtDec(d.principal)}`
       : '';
@@ -1502,11 +1597,6 @@ function renderBreakdown() {
         <div class="breakdown-name">
           ${d.name || 'Unnamed debt'}${badge}
           <small>${d.apr.toFixed(1)}% APR &middot; ${fmt(d.balance)} balance${intStr ? '<br>' + intStr : ''}</small>
-        </div>
-        <div class="breakdown-bar-wrap">
-          <div class="breakdown-bar">
-            <div class="breakdown-fill" style="width:${pct.toFixed(1)}%;background:${col}"></div>
-          </div>
         </div>
         <div class="breakdown-amount">${fmtDec(d.payment)}/mo</div>
       </div>`;
@@ -1524,61 +1614,43 @@ function renderWarnings(valid) {
   for (const d of valid) {
     const rate = (d.apr || 0) / 1200;
     const monthlyInterest = d.balance * rate;
-
-    // 1. Payment doesn't cover interest → balance will grow
+    // Only show the critical case: payment doesn't cover interest → balance will grow
     const effectivePmt = (d.debtType === 'credit_card' && d.useMinimum)
       ? Math.min(d.balance, Math.max(25, d.balance * 0.01 + monthlyInterest, d.balance * 0.02))
       : (d.minPayment || 0);
     if (d.apr > 0 && effectivePmt > 0 && effectivePmt <= monthlyInterest) {
       warnings.push({ cls: 'danger', text: `<strong>${d.name || 'This debt'}</strong>: your payment doesn't cover the monthly interest — your balance will grow over time.` });
     }
-
-    // 3. Federal student loan → forgiveness callout
-    if (d.debtType === 'student_loan' && d.loanType === 'federal') {
-      warnings.push({ cls: 'info', text: `<strong>${d.name || 'Federal student loan'}</strong>: you may qualify for income-driven repayment or Public Service Loan Forgiveness (PSLF). <a href="https://studentaid.gov/loan-simulator" target="_blank" rel="noopener">Learn more →</a>` });
-    }
-
-    // 4. Other debt → negotiate suggestion
-    if (d.debtType === 'other') {
-      warnings.push({ cls: 'info', text: `<strong>${d.name || 'Other debt'}</strong>: many creditors will negotiate a lower balance or interest rate — it's worth a call before paying in full.` });
-    }
-
-    // 5. Credit card using minimum → simulate and show years + interest cost
-    if (d.debtType === 'credit_card' && d.useMinimum && d.apr > 0 && d.balance > 0) {
-      let b = d.balance;
-      const r = d.apr / 1200;
-      let totalInterest = 0;
-      let months = 0;
-      while (b > 0.01 && months < 600) {
-        const interest = b * r;
-        const pmt = Math.min(b + interest, Math.max(25, b * 0.01 + interest, b * 0.02));
-        totalInterest += interest;
-        b = b + interest - pmt;
-        months++;
-      }
-      if (months >= 12) {
-        const yrs = (months / 12).toFixed(1);
-        warnings.push({ cls: 'caution', text: `<strong>${d.name || 'This card'}</strong>: paying only the minimum takes ~${yrs} years and costs <strong>${fmt(totalInterest)}</strong> in interest.` });
-      }
-    }
   }
 
-  // 2. >10 year payoff warning
-  if (lastAv && lastAv.months > 120) {
-    const eb = extrasBreakdown();
-    const bumpSim = simulate(valid, { optimal: eb.optimal + 50, targeted: eb.targeted }, 'avalanche');
-    const yearsNow = Math.round(lastAv.months / 12);
-    const yearsBump = bumpSim ? Math.round(bumpSim.months / 12) : null;
-    warnings.push({ cls: 'caution', text: `At this pace it will take <strong>${yearsNow} years</strong> to pay off your debt.${yearsBump && yearsBump < yearsNow ? ` Adding just $50/mo cuts that to ~${yearsBump} years.` : ''}` });
-  }
-
-  // Deduplicate by text
-  const seen = new Set();
-  const unique = warnings.filter(w => { if (seen.has(w.text)) return false; seen.add(w.text); return true; });
-
-  if (!unique.length) { panel.style.display = 'none'; return; }
+  if (!warnings.length) { panel.style.display = 'none'; return; }
   panel.style.display = '';
-  panel.innerHTML = unique.map(w => `<div class="warning-item ${w.cls}">${w.text}</div>`).join('');
+  panel.innerHTML = warnings.map(w => `<div class="warning-item ${w.cls}">${w.text}</div>`).join('');
+}
+
+function renderPayoffTimeline() {
+  const card = document.getElementById('payoffTimelineCard');
+  const list = document.getElementById('payoffTimelineList');
+  if (!card || !list) return;
+  const r = activeTab === 'avalanche' ? lastAv : lastSb;
+  if (!r || !r.debtPayoffs || r.debtPayoffs.length < 2) { card.style.display = 'none'; return; }
+
+  // Sort by payoff month ascending
+  const sorted = [...r.debtPayoffs].sort((a, b) => a.month - b.month);
+  const maxMonth = sorted[sorted.length - 1].month;
+
+  list.innerHTML = sorted.map((d, i) => {
+    const pct = maxMonth > 0 ? (d.month / maxMonth) * 100 : 100;
+    const col = i === 0 ? 'var(--green)' : i === sorted.length - 1 ? 'var(--avalanche)' : 'var(--snowball)';
+    return `
+      <div class="payoff-row">
+        <div class="payoff-dot" style="background:${col}"></div>
+        <div class="payoff-name">${d.name || 'Unnamed debt'}</div>
+        <div class="payoff-date"><strong>${monthsLabel(d.month)}</strong> from now · ${monthsToDate(d.month)}</div>
+      </div>`;
+  }).join('');
+
+  card.style.display = '';
 }
 
 // ==========================================================
@@ -1622,6 +1694,7 @@ function setTab(tab) {
   renderSummary();
   renderBreakdown();
   renderScenarios();
+  renderPayoffTimeline();
 }
 
 // ==========================================================
@@ -1647,12 +1720,6 @@ function run() {
   lastSb = simulate(valid, eb, 'snowball');
   if (!lastAv || !lastSb) return;
 
-  // Badges
-  const avSaves  = lastSb.interest - lastAv.interest;
-  const sbFaster = lastAv.months   - lastSb.months;
-  document.getElementById('avBadge').style.display = avSaves  > 0.5 ? 'inline-flex' : 'none';
-  document.getElementById('sbBadge').style.display = sbFaster > 0   ? 'inline-flex' : 'none';
-
   // Chart subtitle
   const total = valid.reduce((s, d) => s + d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0), 0);
   document.getElementById('chartSubtitle').textContent = `Starting from ${fmt(total)} total`;
@@ -1661,6 +1728,7 @@ function run() {
   renderSummary();
   renderBreakdown();
   renderScenarios();
+  renderPayoffTimeline();
   renderWarnings(valid);
   encodeUrl();
 }
