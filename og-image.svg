@@ -45,17 +45,17 @@
         font-size="33" font-weight="500" fill="#2d2620">interest you'll save.</text>
 
   <!-- Pill badges -->
-  <rect x="80"  y="456" width="158" height="46" rx="23" fill="#e8f2eb"/>
+  <rect x="80"  y="456" width="158" height="46" rx="23" fill="#e8f2eb" stroke="#5a8a6a" stroke-width="1.5" stroke-opacity="0.35"/>
   <text x="159" y="485"
         font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
         font-size="18" font-weight="700" fill="#5a8a6a" text-anchor="middle">Free to use</text>
 
-  <rect x="252" y="456" width="158" height="46" rx="23" fill="#e8f2eb"/>
+  <rect x="252" y="456" width="158" height="46" rx="23" fill="#e8f2eb" stroke="#5a8a6a" stroke-width="1.5" stroke-opacity="0.35"/>
   <text x="331" y="485"
         font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
         font-size="18" font-weight="700" fill="#5a8a6a" text-anchor="middle">No account</text>
 
-  <rect x="424" y="456" width="178" height="46" rx="23" fill="#e8f2eb"/>
+  <rect x="424" y="456" width="178" height="46" rx="23" fill="#e8f2eb" stroke="#5a8a6a" stroke-width="1.5" stroke-opacity="0.35"/>
   <text x="513" y="485"
         font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
         font-size="18" font-weight="700" fill="#5a8a6a" text-anchor="middle">100% private</text>
