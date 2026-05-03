@@ -1630,21 +1630,28 @@ function renderBreakdown() {
 // ==========================================================
 //  RENDER WARNINGS
 // ==========================================================
-function renderWarnings(valid) {
+function renderWarnings(valid, sim) {
   const panel = document.getElementById('warningsPanel');
   if (!panel) return;
   const warnings = [];
 
+  // Rule 1 — payment does not cover interest
   for (const d of valid) {
     const rate = (d.apr || 0) / 1200;
     const monthlyInterest = d.balance * rate;
-    // Only show the critical case: payment doesn't cover interest → balance will grow
     const effectivePmt = (d.debtType === 'credit_card' && d.useMinimum)
       ? Math.min(d.balance, Math.max(25, d.balance * 0.01 + monthlyInterest, d.balance * 0.02))
       : (d.minPayment || 0);
     if (d.apr > 0 && effectivePmt > 0 && effectivePmt <= monthlyInterest) {
-      warnings.push({ cls: 'danger', text: `<strong>${d.name || 'This debt'}</strong>: your payment doesn't cover the monthly interest — your balance will grow over time.` });
+      const minNeeded = Math.ceil(monthlyInterest + 1);
+      const label = d.name || `Debt ${valid.indexOf(d) + 1}`;
+      warnings.push({ cls: 'danger', text: `<strong>${label}</strong>: your payment only covers the interest — your balance will never go down. You need to pay at least <strong>${fmt(minNeeded)}/mo</strong> to start making progress.` });
     }
+  }
+
+  // Rule 2 — simulation hit 600-month cap without reaching zero
+  if (sim && sim.months >= 600) {
+    warnings.push({ cls: 'danger', text: `<strong>No payoff date found.</strong> We couldn't calculate when you'll be debt-free with your current payments. Try increasing your monthly payment.` });
   }
 
   if (!warnings.length) { panel.style.display = 'none'; return; }
@@ -1768,7 +1775,7 @@ function run() {
   renderBreakdown();
   renderScenarios();
   renderPayoffTimeline();
-  renderWarnings(valid);
+  renderWarnings(valid, lastAv);
   encodeUrl();
 }
 
