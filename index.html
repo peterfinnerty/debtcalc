@@ -388,11 +388,13 @@
       box-shadow: var(--shadow);
     }
     .chart-header {
+      position: relative;
       display: flex; align-items: flex-start; justify-content: space-between;
       margin-bottom: 20px; gap: 16px; flex-wrap: wrap;
     }
     .chart-title { font-size: 1rem; font-weight: 700; letter-spacing: -0.01em; }
     .chart-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 3px; }
+    .chart-header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
     .chart-legend {
       display: flex; gap: 16px; padding-top: 2px;
     }
@@ -404,6 +406,103 @@
       width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
     }
     .chart-wrap { position: relative; height: 280px; }
+
+    /* Extra payment preview button */
+    .extra-btn {
+      display: flex; align-items: center; gap: 5px;
+      padding: 5px 11px; border-radius: 99px;
+      background: var(--green-light); color: var(--green);
+      border: 1px solid rgba(90,138,106,0.25);
+      font-size: 0.76rem; font-weight: 600; cursor: pointer;
+      transition: all var(--transition); font-family: inherit;
+    }
+    .extra-btn:hover { background: #d4e8d8; }
+    .extra-btn.active { background: var(--green); color: #fff; border-color: var(--green); }
+
+    /* Extra payment modal popover */
+    .extra-modal {
+      position: absolute; top: calc(100% + 10px); right: 0;
+      width: 272px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 18px 16px;
+      box-shadow: 0 8px 28px rgba(45,38,32,0.13);
+      z-index: 200; overflow: hidden;
+      transform-origin: top right;
+      opacity: 0; transform: scale(0.93) translateY(-6px); pointer-events: none;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    .extra-modal.open { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
+    .extra-modal.has-insight { padding-bottom: 0; }
+    .em-title { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+    .em-amount-row { margin-bottom: 8px; }
+    .em-amount-wrap {
+      display: flex; align-items: center; gap: 4px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 7px 12px;
+    }
+    .em-dollar { font-size: 0.82rem; color: var(--text-muted); font-weight: 600; }
+    .em-input {
+      border: none; background: transparent;
+      font-size: 0.88rem; font-weight: 700;
+      width: 0; flex: 1; outline: none; color: var(--text);
+      font-family: inherit; min-width: 0;
+    }
+    .em-freq-row { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+    .em-per { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; }
+    .em-select {
+      border: 1px solid var(--border); background: var(--surface2);
+      border-radius: var(--radius-sm); padding: 6px 8px;
+      font-size: 0.82rem; font-weight: 600; color: var(--text);
+      cursor: pointer; outline: none; font-family: inherit; flex: 1;
+    }
+    .em-slider {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 4px; border-radius: 2px;
+      background: var(--border); outline: none; cursor: pointer;
+      margin: 14px 0 4px; display: block;
+    }
+    .em-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--green); cursor: pointer;
+      border: 2.5px solid var(--surface);
+      box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+    }
+    .em-slider::-moz-range-thumb {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--green); cursor: pointer;
+      border: 2.5px solid var(--surface);
+      box-shadow: 0 1px 5px rgba(0,0,0,0.2);
+    }
+    .em-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+    .em-insight {
+      margin: 14px -18px 0;
+      padding: 11px 18px 15px;
+      font-size: 0.78rem; font-weight: 600; color: var(--green);
+      background: var(--green-light);
+      border-top: 1px solid rgba(90,138,106,0.18);
+      line-height: 1.5;
+    }
+
+    /* Preview callout — shown under the "Pay extra?" button, outside modal */
+    .preview-callout {
+      font-size: 0.72rem; font-weight: 600; color: var(--green);
+      text-align: right; line-height: 1.45;
+      display: none;
+    }
+    .em-cancel {
+      padding: 7px 13px; border-radius: 99px; border: 1px solid var(--border);
+      background: transparent; font-size: 0.78rem; font-weight: 600;
+      color: var(--text-muted); cursor: pointer; font-family: inherit;
+    }
+    .em-cancel:hover { background: var(--surface2); color: var(--text); }
+    .em-commit {
+      padding: 7px 15px; border-radius: 99px; border: none;
+      background: var(--green); color: #fff;
+      font-size: 0.78rem; font-weight: 700; cursor: pointer; font-family: inherit;
+      transition: background var(--transition);
+    }
+    .em-commit:hover { background: #4a7a5a; }
 
     /* Strategy tabs */
     .tabs-wrap { display: flex; gap: 0; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
@@ -504,6 +603,31 @@
     .payoff-name { font-size: 0.875rem; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .payoff-date { font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; }
     .payoff-date strong { color: var(--text); font-weight: 700; }
+
+    /* Identical-strategies state — grey out tabs, show note below */
+    .tabs-section { display: block; }
+    .tabs-wrap.strategies-same .tab-btn {
+      opacity: 0.4;
+      cursor: default;
+      pointer-events: none;
+    }
+    .tabs-wrap.strategies-same .tab-btn .info-tooltip {
+      pointer-events: auto;
+    }
+    .strategies-same-note {
+      font-size: 0.75rem; color: var(--text-muted);
+      margin-top: 7px;
+      text-align: center;
+    }
+
+    /* Schedule link in payoff timeline card */
+    .schedule-link {
+      display: inline-block; margin-top: 14px;
+      font-size: 0.78rem; font-weight: 600;
+      color: var(--text-muted); text-decoration: none;
+      transition: color var(--transition);
+    }
+    .schedule-link:hover { color: var(--text); }
 
     /* Actions */
     .actions-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -623,13 +747,45 @@
             <div class="chart-title">Your path to zero</div>
             <div class="chart-subtitle" id="chartSubtitle">Total balance over time</div>
           </div>
-          <div class="chart-legend">
-            <div class="legend-item">
-              <div class="legend-dot" style="background:var(--avalanche)"></div> Avalanche
+          <div class="chart-header-right">
+            <div class="chart-legend" id="chartLegend">
+              <div class="legend-item">
+                <div class="legend-dot" style="background:var(--avalanche)"></div> Avalanche
+              </div>
+              <div class="legend-item">
+                <div class="legend-dot" style="background:var(--snowball)"></div> Snowball
+              </div>
             </div>
-            <div class="legend-item">
-              <div class="legend-dot" style="background:var(--snowball)"></div> Snowball
+            <button class="extra-btn" id="extraBtn">Pay extra?</button>
+            <div class="preview-callout" id="previewCallout"></div>
+          </div>
+          <!-- Extra payment preview popover -->
+          <div class="extra-modal" id="extraModal">
+            <div class="em-title">Extra payment preview</div>
+            <div class="em-amount-row">
+              <div class="em-amount-wrap">
+                <span class="em-dollar">$</span>
+                <input type="text" id="emInput" class="em-input" value="50" inputmode="decimal">
+              </div>
             </div>
+            <div class="em-freq-row">
+              <span class="em-per">every</span>
+              <select id="emFreq" class="em-select">
+                <option value="daily">Day</option>
+                <option value="weekly">Week</option>
+                <option value="monthly" selected>Month</option>
+                <option value="quarterly">3 months</option>
+                <option value="biannually">6 months</option>
+                <option value="yearly">Year</option>
+                <option value="one_time">One time</option>
+              </select>
+            </div>
+            <input type="range" id="emSlider" class="em-slider" min="0" max="500" step="25" value="50">
+            <div class="em-actions">
+              <button class="em-cancel" id="emCancel">Cancel</button>
+              <button class="em-commit" id="emCommit">Add to plan</button>
+            </div>
+            <div id="emInsight" class="em-insight" style="display:none"></div>
           </div>
         </div>
         <div class="chart-wrap">
@@ -639,7 +795,8 @@
 
       <!-- Tabs + Summary -->
       <div class="fade-in" style="margin-bottom:24px">
-        <div class="tabs-wrap">
+        <div class="tabs-section">
+        <div class="tabs-wrap" id="tabsWrap">
           <button class="tab-btn tab-av" id="tabAv">
             Avalanche
             <span class="info-tooltip" data-tip="Pay off your highest-interest debt first. Minimizes total interest paid — the mathematically optimal strategy."><i class="info-icon">i</i></span>
@@ -649,12 +806,14 @@
             <span class="info-tooltip" data-tip="Pay off your smallest balance first. Builds momentum with quick wins — great if you need motivation to stay on track."><i class="info-icon">i</i></span>
           </button>
         </div>
+        <div id="strategiesSameNote" style="display:none" class="strategies-same-note">Both strategies give the same result for your debts.</div>
+        </div>
         <div id="summaryArea"></div>
       </div>
 
       <!-- Breakdown -->
       <div class="breakdown-card fade-in" style="margin-bottom:24px">
-        <div class="card-title">Monthly payment breakdown</div>
+        <div class="card-title">Monthly payment priority</div>
         <div class="breakdown-list" id="breakdownList"></div>
       </div>
 
@@ -669,6 +828,7 @@
       <div class="payoff-timeline-card fade-in" id="payoffTimelineCard" style="display:none;margin-bottom:24px">
         <div class="card-title">When each debt gets paid off</div>
         <div id="payoffTimelineList"></div>
+        <a id="scheduleLink" href="amortization.html" class="schedule-link">View full amortization schedule →</a>
       </div>
 
     </div>

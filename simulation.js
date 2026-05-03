@@ -26,6 +26,19 @@ function fmtInput(val) {
   return dec.length ? formatted + '.' + dec[0] : formatted;
 }
 
+// Normalize a dollar-amount input: integers only, commas, no leading zeros,
+// no decimals, no negatives, no letters. Returns '' for empty/zero.
+function normalizeDollarInput(val) {
+  const s = String(val);
+  // Chop at first decimal point so "50.25" → "50", not "5025"
+  const intStr = s.includes('.') ? s.slice(0, s.indexOf('.')) : s;
+  // Keep only digits
+  const digits = intStr.replace(/[^\d]/g, '');
+  if (!digits) return '';
+  const n = parseInt(digits, 10); // strips leading zeros
+  return n.toLocaleString('en-US');
+}
+
 function monthsToDate(m) {
   const d = new Date();
   d.setMonth(d.getMonth() + Math.round(m));
@@ -104,7 +117,7 @@ function strategySort(arr, strategy) {
 //  SIMULATION
 // ==========================================================
 function simulate(source, eb, strategy) {
-  // eb = { optimal: number, targeted: [{id, amount}] }
+  // eb = { optimal: number, oneTime: number, targeted: [{id, amount}] }
   const effBal = d => d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0);
   let pool = source
     .filter(d => d.balance > 0)
@@ -146,7 +159,8 @@ function simulate(source, eb, strategy) {
         const interest = d.b * d.rate;
         return s + Math.min(d.b, Math.max(25, d.b * 0.01 + interest, d.b * 0.02));
       }, 0);
-    const totalBudget = fixedMonthlyBudget + dynamicBudget + Math.max(0, eb.optimal);
+    const totalBudget = fixedMonthlyBudget + dynamicBudget + Math.max(0, eb.optimal)
+      + (mo === 1 ? Math.max(0, eb.oneTime || 0) : 0);
     let rem = totalBudget;
 
     // Apply floors to all active debts (capped at getUserBudget to prevent negative rem)
@@ -200,7 +214,8 @@ function firstMonthBreakdown(source, eb, strategy) {
     .filter(d => d.debtType === 'credit_card' ? (d.useMinimum || d.minPayment > 0) : d.minPayment > 0)
     .map(d => ({ ...d, b: effBal(d), rate: (d.apr || 0) / 1200, alloc: 0 }));
 
-  const totalBudget = pool.reduce((s, d) => s + getUserBudget(d), 0) + Math.max(0, eb.optimal);
+  const totalBudget = pool.reduce((s, d) => s + getUserBudget(d), 0) + Math.max(0, eb.optimal)
+    + Math.max(0, eb.oneTime || 0);
   let rem = totalBudget;
 
   // Apply floors (capped at getUserBudget to prevent negative rem)
@@ -229,6 +244,109 @@ function firstMonthBreakdown(source, eb, strategy) {
     const principal = Math.max(0, d.alloc - monthlyInterest);
     return { id: d.id, name: d.name, payment: d.alloc, balance: d.b, apr: d.apr, monthlyInterest, principal, monthsPastDue: d.monthsPastDue || 0 };
   });
+}
+
+// ==========================================================
+//  AMORTIZATION SCHEDULE
+// ==========================================================
+// Returns full month-by-month data for the amortization page.
+// Mirrors simulate() logic exactly — just tracks more per-debt detail.
+function buildSchedule(source, eb, strategy) {
+  const effBal = d => d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0);
+  let pool = source
+    .filter(d => d.balance > 0)
+    .map(d => ({ ...d, b: effBal(d), rate: (d.apr || 0) / 1200 }));
+
+  if (!pool.length) return { rows: [], debts: [] };
+
+  const fixedMonthlyBudget = pool.reduce((s, d) => {
+    if (d.debtType === 'credit_card' && (d.useMinimum || (d.minPayment || 0) <= 0)) return s;
+    return s + (d.minPayment || 0);
+  }, 0);
+
+  const debtMeta = pool.map(d => ({ id: d.id, name: d.name, apr: d.apr, initialBalance: effBal(d) }));
+  const rows = [];
+  let mo = 0;
+  let cumInterest = 0;
+
+  while (mo < 600 && pool.some(d => d.b > 0.005)) {
+    mo++;
+
+    // Accrue interest (captured before adding, matching simulate())
+    const monthlyInterestMap = {};
+    for (const d of pool) {
+      if (d.b > 0) {
+        const i = d.b * d.rate;
+        monthlyInterestMap[d.id] = i;
+        d.b += i;
+        cumInterest += i;
+      } else {
+        monthlyInterestMap[d.id] = 0;
+      }
+    }
+
+    // Budget — mirrors simulate() exactly
+    const dynamicBudget = pool
+      .filter(d => d.b > 0 && d.debtType === 'credit_card' && (d.useMinimum || (d.minPayment || 0) <= 0))
+      .reduce((s, d) => {
+        const interest = d.b * d.rate;
+        return s + Math.min(d.b, Math.max(25, d.b * 0.01 + interest, d.b * 0.02));
+      }, 0);
+    let rem = fixedMonthlyBudget + dynamicBudget + Math.max(0, eb.optimal)
+      + (mo === 1 ? Math.max(0, eb.oneTime || 0) : 0);
+
+    const paid = {};
+    for (const d of pool) paid[d.id] = 0;
+
+    // Floors
+    for (const d of pool) {
+      if (d.b > 0) {
+        const p = Math.min(getFloor(d), getUserBudget(d), d.b);
+        d.b -= p; rem -= p; paid[d.id] += p;
+      }
+    }
+
+    // Targeted extras
+    for (const te of eb.targeted) {
+      let target = pool.find(d => d.id == te.id && d.b > 0.005);
+      if (!target) {
+        const alive = pool.filter(d => d.b > 0.005);
+        strategySort(alive, strategy);
+        target = alive[0];
+      }
+      if (target) { const p = Math.min(te.amount, target.b); target.b -= p; paid[target.id] += p; }
+    }
+
+    // Optimal extra
+    const active = pool.filter(d => d.b > 0.005);
+    strategySort(active, strategy);
+    for (const d of active) {
+      if (rem <= 0) break;
+      const p = Math.min(rem, d.b); d.b -= p; rem -= p; paid[d.id] += p;
+    }
+
+    for (const d of pool) d.b = Math.max(0, d.b);
+
+    const debtRows = pool.map(d => ({
+      id: d.id,
+      balance:   d.b,
+      payment:   paid[d.id] || 0,
+      principal: Math.max(0, (paid[d.id] || 0) - (monthlyInterestMap[d.id] || 0)),
+      interest:  monthlyInterestMap[d.id] || 0,
+    }));
+
+    rows.push({
+      month:          mo,
+      debts:          debtRows,
+      totalBalance:   pool.reduce((s, d) => s + d.b, 0),
+      totalPayment:   debtRows.reduce((s, r) => s + r.payment, 0),
+      totalPrincipal: debtRows.reduce((s, r) => s + r.principal, 0),
+      totalInterest:  debtRows.reduce((s, r) => s + r.interest, 0),
+      cumInterest,
+    });
+  }
+
+  return { rows, debts: debtMeta };
 }
 
 // ==========================================================

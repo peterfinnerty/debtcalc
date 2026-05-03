@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amortization Schedule — To Zero</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <script src="simulation.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #faf7f2;
+      --surface:    #ffffff;
+      --surface2:   #f5f0e8;
+      --border:     #e8e0d0;
+      --text:       #2d2620;
+      --text-muted: #7a6e65;
+      --green:      #5a8a6a;
+      --green-light:#e8f2eb;
+      --amber:      #c4824a;
+      --amber-light:#fdf0e6;
+      --blue:       #4a7a9b;
+      --blue-light: #e6f0f8;
+      --avalanche:  #c4824a;
+      --snowball:   #4a7a9b;
+      --radius:     14px;
+      --radius-sm:  8px;
+      --shadow-sm:  0 1px 6px rgba(45,38,32,0.06);
+      --transition: 0.2s ease;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .back-link {
+      font-size: 0.82rem; font-weight: 600;
+      color: var(--text-muted); text-decoration: none;
+      display: flex; align-items: center; gap: 5px;
+      transition: color var(--transition); white-space: nowrap;
+    }
+    .back-link:hover { color: var(--text); }
+    .header-title {
+      font-size: 1rem; font-weight: 700; letter-spacing: -0.01em;
+      flex: 1;
+    }
+    .header-title span { color: var(--text-muted); font-weight: 400; }
+
+    /* ── Strategy toggle ── */
+    .tabs-wrap {
+      display: flex; border-radius: var(--radius-sm);
+      overflow: hidden; border: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .tab-btn {
+      padding: 7px 16px; border: none; background: var(--surface2);
+      font-size: 0.8rem; font-weight: 600; cursor: pointer;
+      color: var(--text-muted); transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .tab-btn:first-child { border-right: 1px solid var(--border); }
+    .tab-btn.tab-av { background: var(--amber-light); color: var(--amber); }
+    .tab-btn.tab-sb { background: var(--blue-light);  color: var(--blue); }
+    .strategies-same-note {
+      font-size: 0.78rem; color: var(--text-muted);
+      padding: 7px 14px; background: var(--surface2);
+      border-radius: var(--radius-sm); border: 1px solid var(--border);
+    }
+
+    /* ── Content ── */
+    .content {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 28px 24px 60px;
+    }
+
+    /* ── Summary cards ── */
+    .summary-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 12px; margin-bottom: 28px;
+    }
+    .summary-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px 18px;
+      box-shadow: var(--shadow-sm);
+    }
+    .s-label { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+    .s-value { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; margin-top: 4px; }
+    .s-sub   { font-size: 0.73rem; color: var(--text-muted); margin-top: 3px; }
+    .c-green { color: var(--green); }
+    .c-amber { color: var(--amber); }
+
+    /* ── Cards ── */
+    .sched-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow-sm);
+      margin-bottom: 20px; overflow: hidden;
+    }
+    .sched-card-header {
+      padding: 16px 20px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sched-card-title {
+      font-size: 0.875rem; font-weight: 700;
+    }
+    .sched-card-sub {
+      font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;
+    }
+
+    /* ── Per-debt accordion ── */
+    details { margin-bottom: 12px; }
+    details.sched-card { margin-bottom: 12px; }
+    summary {
+      padding: 16px 20px;
+      cursor: pointer;
+      list-style: none;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary .sum-left { display: flex; flex-direction: column; gap: 2px; }
+    summary .sum-title { font-size: 0.875rem; font-weight: 700; }
+    summary .sum-sub   { font-size: 0.73rem; color: var(--text-muted); }
+    summary .sum-right { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; }
+    .chevron {
+      width: 16px; height: 16px; flex-shrink: 0;
+      transition: transform var(--transition);
+      color: var(--text-muted);
+    }
+    details[open] .chevron { transform: rotate(180deg); }
+    details[open] summary { border-bottom: 1px solid var(--border); }
+
+    /* ── Table ── */
+    .table-scroll { overflow-x: auto; max-height: 460px; overflow-y: auto; }
+    table {
+      width: 100%; border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    thead th {
+      padding: 9px 12px;
+      text-align: left;
+      font-size: 0.67rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-muted);
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      position: sticky; top: 0; z-index: 1;
+    }
+    thead th.num { text-align: right; }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody td {
+      padding: 8px 12px;
+      white-space: nowrap;
+    }
+    tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    tbody td.mo  { color: var(--text-muted); font-size: 0.74rem; width: 44px; }
+    tbody td.date { color: var(--text-muted); font-size: 0.74rem; }
+    tbody td.bal  { font-weight: 700; }
+    tbody td.int  { color: var(--amber); }
+    tbody td.pri  { color: var(--green); }
+    tbody td.cum  { color: var(--text-muted); font-size: 0.74rem; }
+    /* Totals summary bar below table */
+    .totals-bar {
+      display: flex; gap: 24px; flex-wrap: wrap; justify-content: center;
+      padding: 12px 16px;
+      border-top: 2px solid var(--border);
+      background: var(--surface2);
+      font-size: 0.8rem;
+    }
+    .totals-bar .t-item { display: flex; align-items: baseline; gap: 6px; }
+    .totals-bar .t-label { color: var(--text-muted); }
+    .totals-bar .t-val   { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center; padding: 80px 24px;
+      color: var(--text-muted);
+    }
+    .empty-state h2 { font-size: 1.1rem; color: var(--text); margin-bottom: 8px; }
+    .empty-state p  { font-size: 0.875rem; margin-bottom: 20px; }
+    .btn-back {
+      display: inline-block; padding: 10px 22px;
+      background: var(--green); color: white;
+      border-radius: 99px; text-decoration: none;
+      font-size: 0.875rem; font-weight: 600;
+    }
+
+    @media (max-width: 600px) {
+      header { padding: 14px 16px; flex-wrap: wrap; gap: 10px; }
+      .content { padding: 20px 16px 48px; }
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="/" class="back-link" id="backLink">← Calculator</a>
+  <div class="header-title">Amortization Schedule <span>— To Zero</span></div>
+  <div class="tabs-wrap" id="tabsWrap">
+    <button class="tab-btn tab-av" id="tabAv">Avalanche</button>
+    <button class="tab-btn" id="tabSb">Snowball</button>
+  </div>
+  <div id="strategiesSameNote" class="strategies-same-note" style="display:none">Both strategies are identical for your debts</div>
+</header>
+
+<div id="emptyState" class="empty-state" style="display:none">
+  <h2>No debt data found</h2>
+  <p>Go back to the calculator, enter your debts, then click "View full amortization schedule."</p>
+  <a href="/" class="btn-back">← Back to calculator</a>
+</div>
+
+<div class="content" id="content" style="display:none">
+
+  <!-- Summary -->
+  <div class="summary-grid" id="summaryArea"></div>
+
+  <!-- Overall schedule -->
+  <div class="sched-card">
+    <div class="sched-card-header">
+      <div class="sched-card-title">Overall schedule</div>
+      <div class="sched-card-sub" id="overallSub"></div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Mo.</th>
+            <th>Date</th>
+            <th class="num">Balance</th>
+            <th class="num">Payment</th>
+            <th class="num">Principal</th>
+            <th class="num">Interest</th>
+            <th class="num">Cum. Interest</th>
+          </tr>
+        </thead>
+        <tbody id="overallBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Per-debt sections -->
+  <div id="debtSections"></div>
+
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────
+let activeTab = 'avalanche';
+let state = null; // { debts, extras }
+let backLink = null; // set at init
+
+// ── Decode URL hash (mirrors app.js decodeUrl logic) ─────
+function decodeState() {
+  const hash = location.hash.slice(1);
+  const p = new URLSearchParams(hash).get('p');
+  if (!p) return null;
+  try {
+    const raw = JSON.parse(atob(p));
+    const debts = [];
+    const extras = [];
+    let idCounter = 0;
+
+    const normalizeType = t => {
+      if (!t || t === 'card') return 'credit_card';
+      if (['personal_loan','auto','mortgage','bnpl','tax'].includes(t)) return 'loan';
+      if (['student_private','student_federal'].includes(t)) return 'student_loan';
+      if (['medical','collections'].includes(t)) return 'other';
+      return ['credit_card','loan','student_loan','other'].includes(t) ? t : 'credit_card';
+    };
+
+    if (raw.v === 3 && Array.isArray(raw.d)) {
+      raw.d.forEach(d => debts.push({
+        id: ++idCounter, name: d.n || '', balance: +d.b || 0, apr: +d.a || 0,
+        minPayment: +d.m || 0, debtType: normalizeType(d.t), useMinimum: !!d.u,
+        loanType: d.lt || 'federal', pastDue: !!d.pd,
+        monthsPastDue: +d.mpd || 0, pastDueAmount: +d.pda || 0,
+      }));
+    } else if (raw.v === 2 && Array.isArray(raw.d)) {
+      raw.d.forEach(d => debts.push({
+        id: ++idCounter, name: d.n || '', balance: +d.b || 0, apr: +d.a || 0,
+        minPayment: +d.m || 0, debtType: normalizeType(d.t), useMinimum: false,
+        loanType: d.lt || 'federal', pastDue: false, monthsPastDue: 0, pastDueAmount: 0,
+      }));
+    } else if (Array.isArray(raw.d)) {
+      raw.d.forEach(d => debts.push({
+        id: ++idCounter, name: d[0] || '', balance: +d[1] || 0, apr: +d[2] || 0,
+        minPayment: +d[3] || 0, debtType: normalizeType(d[4]),
+        useMinimum: false, loanType: 'federal', pastDue: false, monthsPastDue: 0, pastDueAmount: 0,
+      }));
+    }
+
+    if (Array.isArray(raw.e)) {
+      raw.e.forEach((e, i) => {
+        if (e[0]) extras.push({ eid: i + 1, amount: +e[0] || 0, freq: e[1] || 'monthly', targetId: e[2] || null });
+      });
+    }
+
+    return { debts, extras };
+  } catch (_) { return null; }
+}
+
+// ── Compute extras breakdown ─────────────────────────────
+function computeEB(extras) {
+  const MULT = { daily: 365/12, weekly: 52/12, monthly: 1, quarterly: 1/3, biannually: 1/6, yearly: 1/12 };
+  const me = e => e.amount * (MULT[e.freq] ?? 1);
+  return {
+    optimal:  extras.filter(e => !e.targetId).reduce((s, e) => s + me(e), 0),
+    targeted: extras.filter(e =>  e.targetId).map(e => ({ id: e.targetId, amount: me(e) })),
+  };
+}
+
+// ── Valid debts (same filter as app.js run()) ────────────
+function validDebts(debts) {
+  return debts.filter(d => {
+    if (!d.balance || d.balance <= 0) return false;
+    if (d.debtType === 'credit_card') return d.useMinimum || d.minPayment > 0;
+    return d.minPayment > 0;
+  });
+}
+
+// ── Hash strategy helpers ─────────────────────────────────
+function updateHashStrategy(strat) {
+  const params = new URLSearchParams(location.hash.slice(1));
+  if (strat === 'snowball') params.set('s', 'snowball');
+  else params.delete('s');
+  history.replaceState(null, '', location.pathname + '#' + params.toString());
+  if (backLink) backLink.href = '/' + location.hash;
+}
+
+// ── Render ───────────────────────────────────────────────
+function render() {
+  const valid = validDebts(state.debts);
+  const eb    = computeEB(state.extras);
+
+  if (!valid.length) {
+    document.getElementById('emptyState').style.display = '';
+    document.getElementById('content').style.display    = 'none';
+    return;
+  }
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('content').style.display    = '';
+
+  // Detect identical strategies
+  const av = simulate(valid, eb, 'avalanche');
+  const sb = simulate(valid, eb, 'snowball');
+  const identical = av && sb && av.months === sb.months && Math.abs(av.interest - sb.interest) < 1;
+  document.getElementById('tabsWrap').style.display          = identical ? 'none' : '';
+  document.getElementById('strategiesSameNote').style.display = identical ? '' : 'none';
+
+  const simResult = activeTab === 'avalanche' ? av : sb;
+  const schedule  = buildSchedule(valid, eb, activeTab);
+
+  renderSummary(simResult, valid);
+  renderOverall(schedule, simResult, identical);
+  renderDebtSections(schedule);
+}
+
+function renderSummary(r, valid) {
+  const totalDebt = valid.reduce((s, d) => s + d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0), 0);
+  document.getElementById('summaryArea').innerHTML = `
+    <div class="summary-card">
+      <div class="s-label">Debt-free by</div>
+      <div class="s-value c-green" style="font-size:1.05rem">${r.freeDate}</div>
+      <div class="s-sub">${monthsLabel(r.months)} from now</div>
+    </div>
+    <div class="summary-card">
+      <div class="s-label">Total interest</div>
+      <div class="s-value c-amber">${fmt(r.interest)}</div>
+      <div class="s-sub">on top of ${fmt(totalDebt)}</div>
+    </div>
+    <div class="summary-card">
+      <div class="s-label">Total you'll pay</div>
+      <div class="s-value">${fmt(r.totalPaid)}</div>
+      <div class="s-sub">principal + interest</div>
+    </div>`;
+}
+
+function renderOverall(schedule, simResult, identical) {
+  const stratLabel = identical ? '' : ` · ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} strategy`;
+  document.getElementById('overallSub').textContent = `${schedule.rows.length} months${stratLabel}`;
+
+  const tbody = document.getElementById('overallBody');
+  tbody.innerHTML = schedule.rows.map(row => {
+    return `<tr>
+      <td class="mo num">${row.month}</td>
+      <td class="date">${monthsToDate(row.month)}</td>
+      <td class="bal num">${fmt(row.totalBalance)}</td>
+      <td class="num">${fmt(row.totalPayment)}</td>
+      <td class="pri num">${fmt(row.totalPrincipal)}</td>
+      <td class="int num">${fmt(row.totalInterest)}</td>
+      <td class="cum num">${fmt(row.cumInterest)}</td>
+    </tr>`;
+  }).join('');
+
+}
+
+function renderDebtSections(schedule) {
+  const container = document.getElementById('debtSections');
+  if (schedule.debts.length < 2) { container.innerHTML = ''; return; }
+
+  container.innerHTML = schedule.debts.map(debt => {
+    const payoffRow = [...schedule.rows].reverse().find(r => {
+      const dr = r.debts.find(d => d.id === debt.id);
+      return dr && dr.balance < 0.01;
+    });
+    const payoffMonth = payoffRow ? payoffRow.month : schedule.rows.length;
+    const activeRows  = schedule.rows.filter(r => r.month <= payoffMonth);
+
+    let totPmt = 0, totPri = 0, totInt = 0;
+    const rowsHtml = activeRows.map(row => {
+      const dr = row.debts.find(d => d.id === debt.id);
+      if (!dr) return '';
+      totPmt += dr.payment;
+      totPri += dr.principal;
+      totInt += dr.interest;
+      return `<tr>
+        <td class="mo num">${row.month}</td>
+        <td class="date">${monthsToDate(row.month)}</td>
+        <td class="bal num">${fmt(dr.balance)}</td>
+        <td class="num">${fmt(dr.payment)}</td>
+        <td class="pri num">${fmt(dr.principal)}</td>
+        <td class="int num">${fmt(dr.interest)}</td>
+      </tr>`;
+    }).join('');
+
+    const totalsBar = `
+      <div class="t-item"><span class="t-label">Total paid</span><span class="t-val">${fmt(totPmt)}</span></div>
+      <div class="t-item"><span class="t-label">Principal</span><span class="t-val" style="color:var(--green)">${fmt(totPri)}</span></div>
+      <div class="t-item"><span class="t-label">Interest</span><span class="t-val" style="color:var(--amber)">${fmt(totInt)}</span></div>`;
+
+    return `
+      <details class="sched-card">
+        <summary>
+          <div class="sum-left">
+            <div class="sum-title">${escHtml(debt.name) || 'Unnamed debt'}</div>
+            <div class="sum-sub">${debt.apr.toFixed(1)}% APR · ${fmt(debt.initialBalance)} starting balance</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <div class="sum-right">Paid off ${monthsToDate(payoffMonth)}</div>
+            <svg class="chevron" viewBox="0 0 12 12" fill="none">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </summary>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Mo.</th><th>Date</th>
+                <th class="num">Balance</th>
+                <th class="num">Payment</th>
+                <th class="num">Principal</th>
+                <th class="num">Interest</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+        <div class="totals-bar">${totalsBar}</div>
+      </details>`;
+  }).join('');
+}
+
+// ── Tab listeners ─────────────────────────────────────────
+document.getElementById('tabAv').addEventListener('click', () => {
+  activeTab = 'avalanche';
+  document.getElementById('tabAv').className = 'tab-btn tab-av';
+  document.getElementById('tabSb').className = 'tab-btn';
+  updateHashStrategy('avalanche');
+  render();
+});
+document.getElementById('tabSb').addEventListener('click', () => {
+  activeTab = 'snowball';
+  document.getElementById('tabAv').className = 'tab-btn';
+  document.getElementById('tabSb').className = 'tab-btn tab-sb';
+  updateHashStrategy('snowball');
+  render();
+});
+
+// ── Init ──────────────────────────────────────────────────
+state = decodeState();
+
+// Read strategy from hash
+const initParams = new URLSearchParams(location.hash.slice(1));
+if (initParams.get('s') === 'snowball') {
+  activeTab = 'snowball';
+  document.getElementById('tabAv').className = 'tab-btn';
+  document.getElementById('tabSb').className = 'tab-btn tab-sb';
+}
+
+// Preserve hash on back link so the calculator reloads with state intact
+backLink = document.getElementById('backLink');
+if (backLink && location.hash) backLink.href = '/' + location.hash;
+
+if (!state || !state.debts.length) {
+  document.getElementById('emptyState').style.display = '';
+} else {
+  render();
+}
+</script>
+</body>
+</html>

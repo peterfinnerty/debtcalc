@@ -11,15 +11,22 @@ let chart       = null;
 let debtId      = 0;
 let extraId     = 0;
 let updateTimer = null;
-let lastAv      = null;
-let lastSb      = null;
+let lastAv         = null;
+let lastSb         = null;
+let lastIdentical  = false;
+let lastValid      = [];
+let previewAmount  = 50;
+let previewFreq    = 'monthly';
+let previewHistory = null;
 
 const FREQ = {
+  daily:       { label: 'Daily',          mult: 365 / 12 },
   weekly:      { label: 'Weekly',         mult: 52 / 12 },
   monthly:     { label: 'Monthly',        mult: 1 },
   quarterly:   { label: 'Every 3 months', mult: 1 / 3 },
   biannually:  { label: 'Every 6 months', mult: 1 / 6 },
   yearly:      { label: 'Yearly',         mult: 1 / 12 },
+  one_time:    { label: 'One time',       mult: null },
 };
 
 // Formatters, simulation helpers, and calcWarnings are provided by simulation.js (loaded in <head>)
@@ -150,7 +157,7 @@ function onTypeChange(id) {
 
 // Shared field builders
 function moneyPaymentField(id, debt) {
-  const val = debt.minPayment ? fmtInput(debt.minPayment) : '';
+  const val = debt.minPayment ? normalizeDollarInput(debt.minPayment) : '';
   return `
     <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:12px">
       <div class="field">
@@ -231,7 +238,7 @@ function updateCardForType(id, type) {
     // ── Credit Card ───────────────────────────────────────────
     case 'credit_card': {
       const useMin = debt.useMinimum;
-      const pmtVal = useMin ? '' : (debt.minPayment ? fmtInput(debt.minPayment) : '');
+      const pmtVal = useMin ? '' : (debt.minPayment ? normalizeDollarInput(debt.minPayment) : '');
       const placeholder = useMin ? calcMinPreview(debt) : '150';
       typeFieldsEl.innerHTML = `
         <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:12px">
@@ -393,7 +400,7 @@ function addDebt(pre = {}) {
   if (pre.name) card.querySelector('[data-field="name"]').value = pre.name;
   if (pre.balance) {
     const balEl = card.querySelector('[data-field="balance"]');
-    if (balEl) balEl.value = fmtInput(pre.balance);
+    if (balEl) balEl.value = normalizeDollarInput(pre.balance);
   }
 
   const typeSelect = card.querySelector('[data-field="debtType"]');
@@ -403,7 +410,7 @@ function addDebt(pre = {}) {
 
   if (pre.apr) { const a = card.querySelector('[data-field="apr"]'); if (a && !a.disabled) a.value = pre.apr; }
   const pmtEl = card.querySelector('[data-field="minPayment"]');
-  if (pre.minPayment && pmtEl && !pmtEl.disabled) pmtEl.value = fmtInput(pre.minPayment);
+  if (pre.minPayment && pmtEl && !pmtEl.disabled) pmtEl.value = normalizeDollarInput(pre.minPayment);
 
   // Restore past due state
   if (pre.pastDue) {
@@ -417,7 +424,7 @@ function addDebt(pre = {}) {
     }
     if (pre.pastDueAmount) {
       const pda = card.querySelector('[data-field="pastDueAmount"]');
-      if (pda) pda.value = fmtInput(pre.pastDueAmount);
+      if (pda) pda.value = normalizeDollarInput(pre.pastDueAmount);
     }
   }
 
@@ -496,12 +503,11 @@ document.getElementById('debtsList').addEventListener('input', e => {
     refreshExtraTargets();
   } else if (MONEY_FIELDS.has(field)) {
     const pos = el.selectionStart;
-    const raw = el.value.replace(/,/g, '');
     const oldLen = el.value.length;
-    el.value = fmtInput(raw);
+    el.value = normalizeDollarInput(el.value);
     const newLen = el.value.length;
     try { el.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen)); } catch(_) {}
-    debt[field] = parseFloat(raw) || 0;
+    debt[field] = parseInt(el.value.replace(/,/g, ''), 10) || 0;
     refreshMinPreview(debt);
     if (field === 'balance') updateDebtSummary(id);
     if (field === 'balance' || field === 'minPayment') checkPaymentWarn(debt);
@@ -546,7 +552,8 @@ function makeExtraCard(eid) {
   const el = document.createElement('div');
   el.className = 'extra-card';
   el.dataset.eid = eid;
-  const targetOptions = buildTargetOptions();
+  const ex = extras.find(e => e.eid === eid);
+  const targetOptions = buildTargetOptions(ex?.targetId);
   el.innerHTML = `
     <div class="extra-card-header">
       <span class="extra-card-label">Extra payment</span>
@@ -567,11 +574,13 @@ function makeExtraCard(eid) {
       <div class="field">
         <label>Frequency</label>
         <select data-efield="freq" data-eid="${eid}">
+          <option value="daily">Daily</option>
           <option value="weekly">Weekly</option>
           <option value="monthly" selected>Monthly</option>
           <option value="quarterly">Every 3 months</option>
           <option value="biannually">Every 6 months</option>
           <option value="yearly">Yearly</option>
+          <option value="one_time">One time</option>
         </select>
       </div>
     </div>
@@ -598,15 +607,18 @@ function buildTargetOptions(selectedId) {
 
 function addExtra(pre = {}) {
   const eid = ++extraId;
-  extras.push({ eid, amount: +pre.amount || 0, freq: pre.freq || 'monthly', targetId: pre.targetId || null });
+  const eligible = debts.filter(d => d.balance > 0);
+  const autoTarget = eligible.length === 1 ? eligible[0].id : null;
+  const targetId = pre.targetId != null ? pre.targetId : autoTarget;
+  extras.push({ eid, amount: +pre.amount || 0, freq: pre.freq || 'monthly', targetId });
   const card = makeExtraCard(eid);
   document.getElementById('extrasList').appendChild(card);
   if (pre.amount) {
     const inp = card.querySelector('[data-efield="amount"]');
-    inp.value = fmtInput(pre.amount);
+    inp.value = normalizeDollarInput(pre.amount);
   }
   if (pre.freq) card.querySelector('[data-efield="freq"]').value = pre.freq;
-  if (pre.targetId) card.querySelector('[data-efield="targetId"]').value = pre.targetId;
+  if (targetId != null) card.querySelector('[data-efield="targetId"]').value = targetId;
   bump();
 }
 
@@ -618,23 +630,29 @@ function removeExtra(eid) {
 
 // Refresh target dropdowns whenever debts change
 function refreshExtraTargets() {
+  const eligible = debts.filter(d => d.balance > 0);
   document.querySelectorAll('[data-efield="targetId"]').forEach(sel => {
     const eid = +sel.dataset.eid;
     const ex = extras.find(e => e.eid === eid);
-    const currentVal = ex?.targetId || '';
+    if (!ex) return;
+    // Auto-assign the only debt when there's exactly one choice
+    if (eligible.length === 1 && !ex.targetId) ex.targetId = eligible[0].id;
+    const currentVal = ex.targetId != null ? String(ex.targetId) : '';
     sel.innerHTML = buildTargetOptions(currentVal);
     sel.value = currentVal;
   });
 }
 
 // Monthly equivalent for an extra payment
-const monthlyEquiv = ex => ex.amount * (FREQ[ex.freq]?.mult ?? 1);
+const monthlyEquiv = ex =>
+  ex.freq === 'one_time' ? 0 : ex.amount * (FREQ[ex.freq]?.mult ?? 1);
 
-// Total monthly extra split into optimal vs targeted
+// Total monthly extra split into optimal vs targeted; one-time amounts go in oneTime
 function extrasBreakdown() {
-  const optimal = extras.filter(e => !e.targetId).reduce((s, e) => s + monthlyEquiv(e), 0);
-  const targeted = extras.filter(e => e.targetId).map(e => ({ id: e.targetId, amount: monthlyEquiv(e) }));
-  return { optimal, targeted };
+  const oneTime  = extras.filter(e => e.freq === 'one_time').reduce((s, e) => s + e.amount, 0);
+  const optimal  = extras.filter(e => !e.targetId && e.freq !== 'one_time').reduce((s, e) => s + monthlyEquiv(e), 0);
+  const targeted = extras.filter(e =>  e.targetId && e.freq !== 'one_time').map(e => ({ id: e.targetId, amount: monthlyEquiv(e) }));
+  return { optimal, oneTime, targeted };
 }
 
 // Show/hide recommendation under an extra card
@@ -675,12 +693,11 @@ document.getElementById('extrasList').addEventListener('input', e => {
 
   if (field === 'amount') {
     const pos = el.selectionStart;
-    const raw = el.value.replace(/,/g, '');
     const oldLen = el.value.length;
-    el.value = fmtInput(raw);
+    el.value = normalizeDollarInput(el.value);
     const newLen = el.value.length;
-    el.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen));
-    ex.amount = parseFloat(raw) || 0;
+    try { el.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen)); } catch(_) {}
+    ex.amount = parseInt(el.value.replace(/,/g, ''), 10) || 0;
   } else if (field === 'freq') {
     ex.freq = el.value;
   } else if (field === 'targetId') {
@@ -709,8 +726,8 @@ function bump() {
 // ==========================================================
 //  CHART
 // ==========================================================
-function drawChart(av, sb) {
-  const len = Math.max(av.history.length, sb.history.length);
+function drawChart(av, sb, identical) {
+  const len = Math.max(av.history.length, sb.history.length, previewHistory ? previewHistory.length : 0);
   const fullPad = (arr) => { const a = [...arr]; while (a.length < len) a.push(0); return a; };
 
   // Thin to major intervals so dots appear only at milestones
@@ -722,37 +739,77 @@ function drawChart(av, sb) {
   const labels = indices.map(i => i === 0 ? 'Now' : monthsToDate(i));
   const thin = (arr) => { const p = fullPad(arr); return indices.map(i => p[i]); };
 
-  const data = {
-    labels,
-    datasets: [
-      {
-        label: 'Avalanche',
-        data: thin(av.history),
-        borderColor: '#c4824a',
-        backgroundColor: 'rgba(196,130,74,0.07)',
-        borderWidth: 2.5,
-        pointRadius: 3,
-        pointHoverRadius: 6,
-        pointBackgroundColor: '#c4824a',
-        pointBorderColor: '#c4824a',
-        tension: 0.42, fill: false,
-      },
-      {
-        label: 'Snowball',
-        data: thin(sb.history),
-        borderColor: '#4a7a9b',
-        backgroundColor: 'rgba(74,122,155,0.05)',
-        borderWidth: 2.5,
-        pointRadius: 3,
-        pointHoverRadius: 6,
-        pointBackgroundColor: '#4a7a9b',
-        pointBorderColor: '#4a7a9b',
-        tension: 0.42, fill: false,
-      },
-    ]
-  };
+  const datasets = identical
+    ? [
+        {
+          label: 'Balance',
+          data: thin(av.history),
+          borderColor: '#c4824a',
+          backgroundColor: 'rgba(196,130,74,0.07)',
+          borderWidth: 2.5,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#c4824a',
+          pointBorderColor: '#c4824a',
+          tension: 0.42, fill: false,
+        },
+      ]
+    : [
+        {
+          label: 'Avalanche',
+          data: thin(av.history),
+          borderColor: '#c4824a',
+          backgroundColor: 'rgba(196,130,74,0.07)',
+          borderWidth: 2.5,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#c4824a',
+          pointBorderColor: '#c4824a',
+          tension: 0.42, fill: false,
+        },
+        {
+          label: 'Snowball',
+          data: thin(sb.history),
+          borderColor: '#4a7a9b',
+          backgroundColor: 'rgba(74,122,155,0.05)',
+          borderWidth: 2.5,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#4a7a9b',
+          pointBorderColor: '#4a7a9b',
+          tension: 0.42, fill: false,
+        },
+      ];
 
-  if (chart) { chart.data = data; chart.update('none'); return; }
+  // Preview line — faded solid green, only when modal is open
+  if (previewHistory) {
+    datasets.push({
+      label: 'With extra',
+      data: thin(previewHistory),
+      borderColor: 'rgba(90,138,106,0.4)',
+      backgroundColor: 'rgba(90,138,106,0.04)',
+      borderWidth: 2.5,
+      pointRadius: 2.5,
+      pointHoverRadius: 5,
+      pointBackgroundColor: 'rgba(90,138,106,0.4)',
+      pointBorderColor: 'rgba(90,138,106,0.4)',
+      tension: 0.42, fill: false,
+    });
+  }
+
+  // Show label in tooltip when multiple series are visible
+  const tooltipLabel = (identical && !previewHistory)
+    ? c => '  ' + fmt(c.parsed.y)
+    : c => '  ' + c.dataset.label + ': ' + fmt(c.parsed.y);
+
+  const data = { labels, datasets };
+
+  if (chart) {
+    chart.data = data;
+    chart.options.plugins.tooltip.callbacks.label = tooltipLabel;
+    chart.update('none');
+    return;
+  }
 
   chart = new Chart(document.getElementById('payoffChart').getContext('2d'), {
     type: 'line', data,
@@ -765,7 +822,7 @@ function drawChart(av, sb) {
         tooltip: {
           backgroundColor: '#fff', borderColor: '#e8e0d0', borderWidth: 1,
           titleColor: '#2d2620', bodyColor: '#7a6e65', padding: 10, cornerRadius: 8,
-          callbacks: { label: c => '  ' + c.dataset.label + ': ' + fmt(c.parsed.y) }
+          callbacks: { label: tooltipLabel }
         }
       },
       scales: {
@@ -883,7 +940,7 @@ function renderPayoffTimeline() {
   const list = document.getElementById('payoffTimelineList');
   if (!card || !list) return;
   const r = activeTab === 'avalanche' ? lastAv : lastSb;
-  if (!r || !r.debtPayoffs || r.debtPayoffs.length < 2) { card.style.display = 'none'; return; }
+  if (!r || !r.debtPayoffs || !r.debtPayoffs.length) { card.style.display = 'none'; return; }
 
   // Sort by payoff month ascending
   const sorted = [...r.debtPayoffs].sort((a, b) => a.month - b.month);
@@ -897,6 +954,10 @@ function renderPayoffTimeline() {
         <div class="payoff-date"><strong>${monthsLabel(d.month)}</strong> from now · ${monthsToDate(d.month)}</div>
       </div>`;
   }).join('');
+
+  // Keep schedule link pointing at current state
+  const schedLink = document.getElementById('scheduleLink');
+  if (schedLink) schedLink.href = 'amortization.html' + location.hash;
 
   card.style.display = '';
 }
@@ -916,7 +977,7 @@ function renderScenarios() {
   });
 
   document.getElementById('scenarioList').innerHTML = [50, 100, 200].map(bumpAmt => {
-    const r = simulate(valid, { optimal: eb.optimal + bumpAmt, targeted: eb.targeted }, activeTab);
+    const r = simulate(valid, { optimal: eb.optimal + bumpAmt, oneTime: eb.oneTime, targeted: eb.targeted }, activeTab);
     if (!r) return '';
     const moSaved = base.months - r.months;
     const intSaved = base.interest - r.interest;
@@ -933,12 +994,103 @@ function renderScenarios() {
 }
 
 // ==========================================================
+//  EXTRA PAYMENT PREVIEW MODAL
+// ==========================================================
+function openExtraModal() {
+  document.getElementById('extraModal').classList.add('open');
+  document.getElementById('extraBtn').classList.add('active');
+  // Sync inputs to current state
+  document.getElementById('emInput').value = normalizeDollarInput(previewAmount);
+  document.getElementById('emSlider').value = Math.min(previewAmount, 500);
+  document.getElementById('emFreq').value = previewFreq;
+  updatePreview();
+  setTimeout(() => document.addEventListener('mousedown', outsideClickClose), 0);
+}
+
+function closeExtraModal() {
+  const modal = document.getElementById('extraModal');
+  modal.classList.remove('open', 'has-insight');
+  document.getElementById('extraBtn').classList.remove('active');
+  document.getElementById('emInsight').style.display = 'none';
+  document.getElementById('previewCallout').style.display = 'none';
+  document.removeEventListener('mousedown', outsideClickClose);
+  previewHistory = null;
+  if (lastAv && lastSb) drawChart(lastAv, lastSb, lastIdentical);
+}
+
+function outsideClickClose(e) {
+  const modal = document.getElementById('extraModal');
+  const btn   = document.getElementById('extraBtn');
+  if (!modal.contains(e.target) && !btn.contains(e.target)) closeExtraModal();
+}
+
+function updatePreview() {
+  if (!lastAv || !lastValid.length) return;
+  const isOneTime  = previewFreq === 'one_time';
+  const mult       = isOneTime ? 0 : (FREQ[previewFreq]?.mult ?? 1);
+  const monthlyAmt = previewAmount * mult;
+  const insight  = document.getElementById('emInsight');
+  const callout  = document.getElementById('previewCallout');
+  if (previewAmount <= 0) {
+    previewHistory = null;
+    insight.style.display = 'none';
+    callout.style.display = 'none';
+    drawChart(lastAv, lastSb, lastIdentical);
+    return;
+  }
+  const eb = extrasBreakdown();
+  const pr = simulate(lastValid, {
+    optimal: eb.optimal + monthlyAmt,
+    oneTime: (eb.oneTime || 0) + (isOneTime ? previewAmount : 0),
+    targeted: eb.targeted,
+  }, 'avalanche');
+  previewHistory = pr ? pr.history : null;
+
+  // Insight inside modal + callout under button
+  if (pr && lastAv) {
+    const diffMo  = lastAv.months - pr.months;
+    const diffInt = lastAv.interest - pr.interest;
+    const modal = document.getElementById('extraModal');
+    if (diffMo > 0 || diffInt > 0.5) {
+      const parts = [];
+      if (diffMo  > 0)   parts.push(monthsLabel(diffMo) + ' sooner');
+      if (diffInt > 0.5) parts.push(fmt(diffInt) + ' saved in interest');
+      const text = parts.join(' · ');
+      insight.textContent = text;
+      insight.style.display = '';
+      modal.classList.add('has-insight');
+      callout.textContent = text;
+      callout.style.display = '';
+    } else {
+      insight.style.display = 'none';
+      modal.classList.remove('has-insight');
+      callout.style.display = 'none';
+    }
+  }
+
+  drawChart(lastAv, lastSb, lastIdentical);
+}
+
+function commitExtra() {
+  if (previewAmount <= 0) { closeExtraModal(); return; }
+  addExtra({ amount: previewAmount, freq: previewFreq, targetId: null });
+  previewHistory = null;
+  document.getElementById('extraModal').classList.remove('open', 'has-insight');
+  document.getElementById('extraBtn').classList.remove('active');
+  document.getElementById('emInsight').style.display = 'none';
+  document.getElementById('previewCallout').style.display = 'none';
+  document.removeEventListener('mousedown', outsideClickClose);
+  run();
+}
+
+// ==========================================================
 //  TAB TOGGLE
 // ==========================================================
 function setTab(tab) {
   activeTab = tab;
   document.getElementById('tabAv').className = 'tab-btn' + (tab === 'avalanche' ? ' tab-av' : '');
   document.getElementById('tabSb').className = 'tab-btn' + (tab === 'snowball'  ? ' tab-sb' : '');
+  encodeUrl(); // persist strategy to hash so amortization link stays in sync
   renderSummary();
   renderBreakdown();
   renderScenarios();
@@ -979,15 +1131,28 @@ function run() {
   if (!hasData) return;
 
   const eb = extrasBreakdown();
+  lastValid = valid;
   lastAv = simulate(valid, eb, 'avalanche');
   lastSb = simulate(valid, eb, 'snowball');
   if (!lastAv || !lastSb) return;
+
+  // Grey out strategy tabs + hide legend when both strategies are identical
+  const identical = lastAv.months === lastSb.months && Math.abs(lastAv.interest - lastSb.interest) < 1;
+  lastIdentical = identical;
+  const tabsWrap = document.getElementById('tabsWrap');
+  tabsWrap.classList.toggle('strategies-same', identical);
+  const strategiesSameNote = document.getElementById('strategiesSameNote');
+  strategiesSameNote.style.display = identical ? '' : 'none';
+  if (identical) strategiesSameNote.style.width = tabsWrap.offsetWidth + 'px';
+  const legend = document.getElementById('chartLegend');
+  if (legend) legend.style.display = identical ? 'none' : '';
 
   // Chart subtitle
   const total = valid.reduce((s, d) => s + d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0), 0);
   document.getElementById('chartSubtitle').textContent = `Starting from ${fmt(total)} total`;
 
-  drawChart(lastAv, lastSb);
+  drawChart(lastAv, lastSb, identical);
+  if (document.getElementById('extraModal').classList.contains('open')) updatePreview();
   renderSummary();
   renderBreakdown();
   renderScenarios();
@@ -1018,7 +1183,8 @@ function encodeUrl() {
       e: extras.map(e => [e.amount, e.freq, e.targetId || '']),
     };
     const enc = btoa(JSON.stringify(state));
-    history.replaceState(null, '', location.pathname + '#p=' + enc);
+    const stratPart = activeTab === 'snowball' ? '&s=snowball' : '';
+    history.replaceState(null, '', location.pathname + '#p=' + enc + stratPart);
   } catch (_) {}
 }
 
@@ -1048,6 +1214,13 @@ function decodeUrl() {
       }));
     }
     if (Array.isArray(s.e)) s.e.forEach(e => addExtra({ amount: e[0], freq: e[1], targetId: e[2] || null }));
+    // Restore strategy
+    const strat = new URLSearchParams(hash).get('s');
+    if (strat === 'snowball') {
+      activeTab = 'snowball';
+      document.getElementById('tabAv').className = 'tab-btn';
+      document.getElementById('tabSb').className = 'tab-btn tab-sb';
+    }
     return true;
   } catch (_) { return false; }
 }
@@ -1150,6 +1323,35 @@ document.getElementById('tabSb').addEventListener('click', e => {
   if (e.target.closest('[data-tip]')) return; // don't fire tab change when clicking tooltip
   setTab('snowball');
 });
+
+// Extra payment preview modal
+document.getElementById('extraBtn').addEventListener('click', () => {
+  if (!lastAv) return;
+  if (document.getElementById('extraModal').classList.contains('open')) closeExtraModal();
+  else openExtraModal();
+});
+document.getElementById('emSlider').addEventListener('input', () => {
+  previewAmount = +document.getElementById('emSlider').value;
+  document.getElementById('emInput').value = normalizeDollarInput(previewAmount);
+  updatePreview();
+});
+document.getElementById('emInput').addEventListener('input', () => {
+  const el = document.getElementById('emInput');
+  const pos = el.selectionStart;
+  const oldLen = el.value.length;
+  el.value = normalizeDollarInput(el.value);
+  const newLen = el.value.length;
+  try { el.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen)); } catch(_) {}
+  previewAmount = parseInt(el.value.replace(/,/g, ''), 10) || 0;
+  document.getElementById('emSlider').value = Math.min(previewAmount, 500);
+  updatePreview();
+});
+document.getElementById('emFreq').addEventListener('change', () => {
+  previewFreq = document.getElementById('emFreq').value;
+  updatePreview();
+});
+document.getElementById('emCancel').addEventListener('click', closeExtraModal);
+document.getElementById('emCommit').addEventListener('click', commitExtra);
 
 // ==========================================================
 //  INIT
