@@ -905,7 +905,7 @@ function checkPaymentWarn(debt) {
 
   if (debt.minPayment < estMin) {
     if (!window._pmtWarnText) window._pmtWarnText = {};
-    window._pmtWarnText[debt.id] = `This may be below the typical minimum payment. Lenders usually require at least ${fmt(Math.ceil(estMin))}/mo.`;
+    window._pmtWarnText[debt.id] = `This may be below the typical minimum payment. Most lenders require at least ${fmt(Math.ceil(estMin))}/mo.`;
     warnEl.style.display = 'inline-flex';
   } else {
     warnEl.style.display = 'none';
@@ -959,7 +959,7 @@ function updateCardForType(id, type) {
           </div>
           <label class="checkbox-label" style="margin-top:10px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.8rem;color:var(--text-muted)">
             <input type="checkbox" data-field="useMinimum" data-id="${id}" onchange="onUseMinimumChange(${id})"${useMin ? ' checked' : ''}>
-            I don't know — estimate the minimum
+            Use estimated minimum
             <span class="info-tooltip" onmouseenter="showInfoTooltip(this,'Minimum = max($25, 1% of balance + interest, 2% of balance). Recalculates each month as your balance drops.')" onmouseleave="hideInfoTooltip()"><i class="info-icon">i</i></span>
           </label>
         </div>`;
@@ -1397,6 +1397,25 @@ function getMinPayment(d) {
   return Math.min(d.b, d.minPayment || 0);
 }
 
+// The absolute floor for a debt in simulation — always uses dynamic formula for
+// credit cards so any user payment above the minimum becomes strategy-directable surplus.
+function getFloor(d) {
+  if (d.debtType === 'credit_card') {
+    const monthlyInterest = d.b * d.rate;
+    return Math.min(d.b, Math.max(25, d.b * 0.01 + monthlyInterest, d.b * 0.02));
+  }
+  return Math.min(d.b, d.minPayment || 0);
+}
+
+// The user's intended monthly allocation for this debt (forms the total budget)
+function getUserBudget(d) {
+  if (d.debtType === 'credit_card' && (d.useMinimum || d.minPayment <= 0)) {
+    const monthlyInterest = d.b * d.rate;
+    return Math.min(d.b, Math.max(25, d.b * 0.01 + monthlyInterest, d.b * 0.02));
+  }
+  return Math.min(d.b, d.minPayment || 0);
+}
+
 function avSortKey(d) {
   return d.apr || 0;
 }
@@ -1444,13 +1463,17 @@ function simulate(source, eb, strategy) {
       if (d.b > 0) { const i = d.b * d.rate; d.b += i; interest += i; }
     }
 
-    // Dynamic budget = sum of current minimums + optimal extra
-    const monthlyMin = pool.filter(d => d.b > 0).reduce((s, d) => s + getMinPayment(d), 0);
-    let rem = monthlyMin + Math.max(0, eb.optimal);
+    // Total budget = user-intended payments (getUserBudget) + optional extra.
+    // Floors (getFloor) are applied first; the surplus is directed by strategy.
+    // For credit cards, getFloor uses the dynamic formula so any amount the user
+    // pays above the minimum becomes surplus that the strategy can redirect.
+    const totalBudget = pool.filter(d => d.b > 0).reduce((s, d) => s + getUserBudget(d), 0)
+                        + Math.max(0, eb.optimal);
+    let rem = totalBudget;
 
-    // Apply minimums
+    // Apply floors to all active debts
     for (const d of pool) {
-      if (d.b > 0) { const p = getMinPayment(d); d.b -= p; rem -= p; }
+      if (d.b > 0) { const p = getFloor(d); d.b -= p; rem -= p; }
     }
 
     // Targeted extras: apply to chosen debt, fall back to priority if paid off
@@ -1495,11 +1518,11 @@ function firstMonthBreakdown(source, eb, strategy) {
     .filter(d => d.debtType === 'credit_card' ? (d.useMinimum || d.minPayment > 0) : d.minPayment > 0)
     .map(d => ({ ...d, b: effBal(d), rate: (d.apr || 0) / 1200, alloc: 0 }));
 
-  const monthlyMin = pool.reduce((s, d) => s + getMinPayment(d), 0);
-  let rem = monthlyMin + Math.max(0, eb.optimal);
+  const totalBudget = pool.reduce((s, d) => s + getUserBudget(d), 0) + Math.max(0, eb.optimal);
+  let rem = totalBudget;
 
   for (const d of pool) {
-    const p = getMinPayment(d);
+    const p = getFloor(d);
     d.alloc += p;
     rem -= p;
   }
@@ -1808,6 +1831,11 @@ function run() {
   lastAv = simulate(valid, eb, 'avalanche');
   lastSb = simulate(valid, eb, 'snowball');
   if (!lastAv || !lastSb) return;
+
+  // Debug: log both histories so divergence can be verified
+  console.log('[ToZero] Avalanche history (monthly balances):', lastAv.history.slice(0, 24));
+  console.log('[ToZero] Snowball  history (monthly balances):', lastSb.history.slice(0, 24));
+  console.log('[ToZero] Same?', JSON.stringify(lastAv.history) === JSON.stringify(lastSb.history));
 
   // Chart subtitle
   const total = valid.reduce((s, d) => s + d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0), 0);
