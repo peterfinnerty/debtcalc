@@ -138,6 +138,22 @@
     .debt-callout.danger { background: #fdf0ee; border: 1px solid #f5c6be; color: #8b3428; }
     .debt-callout a { color: inherit; font-weight: 600; }
 
+    /* Past due section */
+    .past-due-section { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .past-due-toggle-label {
+      display: flex; align-items: center; gap: 8px;
+      cursor: pointer; font-size: 0.8rem; color: var(--text-muted); font-weight: 500;
+    }
+    .past-due-toggle-label input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
+
+    /* Priority badge in breakdown */
+    .priority-badge {
+      display: inline-block; font-size: 0.64rem; font-weight: 700;
+      padding: 1px 6px; border-radius: 99px; margin-left: 5px; vertical-align: middle;
+    }
+    .priority-badge.urgent  { background: #fdf0ee; color: #8b3428; }
+    .priority-badge.overdue { background: var(--amber-light); color: #7a4a20; }
+
     /* Plan toggle (federal loan) */
     .plan-toggle { display: flex; border: 1px solid var(--border); border-radius: 99px; overflow: hidden; margin-bottom: 8px; }
     .plan-btn { flex: 1; padding: 5px 0; border: none; background: none; font-size: 0.72rem; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all var(--transition); }
@@ -695,7 +711,28 @@ function makeCard(id) {
       </div>
     </div>
     <div id="typeFields-${id}"></div>
-    <div class="debt-callout" id="callout-${id}"></div>`;
+    <div class="debt-callout" id="callout-${id}"></div>
+    <div class="past-due-section">
+      <label class="past-due-toggle-label">
+        <input type="checkbox" data-field="pastDue" data-id="${id}" onchange="onPastDueChange(${id})">
+        <span>Past due?</span>
+      </label>
+      <div id="pastDueFields-${id}" style="display:none;margin-top:8px">
+        <div class="field-row">
+          <div class="field">
+            <label>Months past due</label>
+            <input type="number" placeholder="1" data-field="monthsPastDue" data-id="${id}" min="0" step="1">
+          </div>
+          <div class="field">
+            <label>Past due amount</label>
+            <div class="input-wrap has-prefix">
+              <span class="input-prefix">$</span>
+              <input type="text" inputmode="decimal" placeholder="0" data-field="pastDueAmount" data-id="${id}" autocomplete="off">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
   return el;
 }
 
@@ -859,6 +896,17 @@ function onUseMinimumChange(id) {
   bump();
 }
 
+function onPastDueChange(id) {
+  const debt = debts.find(d => d.id === id);
+  if (!debt) return;
+  const cb = document.querySelector(`[data-field="pastDue"][data-id="${id}"]`);
+  debt.pastDue = !!cb?.checked;
+  if (!debt.pastDue) { debt.monthsPastDue = 0; debt.pastDueAmount = 0; }
+  const fields = document.getElementById('pastDueFields-' + id);
+  if (fields) fields.style.display = debt.pastDue ? '' : 'none';
+  bump();
+}
+
 function setStudentLoanType(id, lt) {
   const debt = debts.find(d => d.id === id);
   if (!debt) return;
@@ -891,13 +939,16 @@ function addDebt(pre = {}) {
 
   debts.push({
     id,
-    name:       pre.name || '',
-    balance:    +pre.balance || 0,
-    apr:        +pre.apr || 0,
-    minPayment: +pre.minPayment || 0,
-    debtType:   dt,
-    useMinimum: !!pre.useMinimum,
-    loanType:   pre.loanType || 'federal',
+    name:          pre.name || '',
+    balance:       +pre.balance || 0,
+    apr:           +pre.apr || 0,
+    minPayment:    +pre.minPayment || 0,
+    debtType:      dt,
+    useMinimum:    !!pre.useMinimum,
+    loanType:      pre.loanType || 'federal',
+    pastDue:       !!pre.pastDue,
+    monthsPastDue: +pre.monthsPastDue || 0,
+    pastDueAmount: +pre.pastDueAmount || 0,
   });
 
   const card = makeCard(id);
@@ -918,6 +969,22 @@ function addDebt(pre = {}) {
   const pmtEl = card.querySelector('[data-field="minPayment"]');
   if (pre.minPayment && pmtEl && !pmtEl.disabled) pmtEl.value = fmtInput(pre.minPayment);
 
+  // Restore past due state
+  if (pre.pastDue) {
+    const cb = card.querySelector(`[data-field="pastDue"]`);
+    if (cb) cb.checked = true;
+    const fields = document.getElementById('pastDueFields-' + id);
+    if (fields) fields.style.display = '';
+    if (pre.monthsPastDue) {
+      const mpd = card.querySelector('[data-field="monthsPastDue"]');
+      if (mpd) mpd.value = pre.monthsPastDue;
+    }
+    if (pre.pastDueAmount) {
+      const pda = card.querySelector('[data-field="pastDueAmount"]');
+      if (pda) pda.value = fmtInput(pre.pastDueAmount);
+    }
+  }
+
   renumber();
   bump();
 }
@@ -935,7 +1002,7 @@ function renumber() {
 }
 
 // Money fields that need comma-formatting
-const MONEY_FIELDS = new Set(['balance', 'minPayment']);
+const MONEY_FIELDS = new Set(['balance', 'minPayment', 'pastDueAmount']);
 
 document.getElementById('debtsList').addEventListener('input', e => {
   const el = e.target, id = +el.dataset.id, field = el.dataset.field;
@@ -1136,14 +1203,34 @@ function avSortKey(d) {
   return d.apr || 0;
 }
 
+// 0 = highest priority (3+ months past due), 1 = 1–2 months, 2 = current
+function pastDuePriority(d) {
+  const mpd = d.monthsPastDue || 0;
+  if (mpd >= 3) return 0;
+  if (mpd >= 1) return 1;
+  return 2;
+}
+
+function strategySort(arr, strategy) {
+  arr.sort((a, b) => {
+    const pa = pastDuePriority(a), pb = pastDuePriority(b);
+    if (pa !== pb) return pa - pb;
+    // .b = live balance in simulation pool; .balance = effective balance in breakdown objects
+    return strategy === 'avalanche'
+      ? avSortKey(b) - avSortKey(a)
+      : (a.b ?? a.balance ?? 0) - (b.b ?? b.balance ?? 0);
+  });
+}
+
 // ==========================================================
 //  SIMULATION
 // ==========================================================
 function simulate(source, eb, strategy) {
   // eb = { optimal: number, targeted: [{id, amount}] }
+  const effBal = d => d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0);
   let pool = source
     .filter(d => d.balance > 0)
-    .map(d => ({ ...d, b: d.balance, rate: (d.apr || 0) / 1200 }));
+    .map(d => ({ ...d, b: effBal(d), rate: (d.apr || 0) / 1200 }));
 
   if (!pool.length) return null;
 
@@ -1172,8 +1259,7 @@ function simulate(source, eb, strategy) {
       let target = pool.find(d => d.id == te.id && d.b > 0.005);
       if (!target) {
         const alive = pool.filter(d => d.b > 0.005);
-        if (strategy === 'avalanche') alive.sort((a, b) => avSortKey(b) - avSortKey(a));
-        else alive.sort((a, b) => a.b - b.b);
+        strategySort(alive, strategy);
         target = alive[0];
       }
       if (target) { const p = Math.min(te.amount, target.b); target.b -= p; }
@@ -1181,8 +1267,7 @@ function simulate(source, eb, strategy) {
 
     // Optimal extra toward strategy priority
     const active = pool.filter(d => d.b > 0.005);
-    if (strategy === 'avalanche') active.sort((a, b) => avSortKey(b) - avSortKey(a));
-    else                          active.sort((a, b) => a.b - b.b);
+    strategySort(active, strategy);
     for (const d of active) {
       if (rem <= 0) break;
       const p = Math.min(rem, d.b); d.b -= p; rem -= p;
@@ -1194,17 +1279,18 @@ function simulate(source, eb, strategy) {
 
   return {
     months: mo, interest,
-    totalPaid: source.reduce((s, d) => s + d.balance, 0) + interest,
+    totalPaid: source.reduce((s, d) => s + effBal(d), 0) + interest,
     freeDate: monthsToDate(mo), history,
     breakdown: firstMonthBreakdown(source, eb, strategy),
   };
 }
 
 function firstMonthBreakdown(source, eb, strategy) {
+  const effBal = d => d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0);
   let pool = source
     .filter(d => d.balance > 0)
     .filter(d => d.debtType === 'credit_card' ? (d.useMinimum || d.minPayment > 0) : d.minPayment > 0)
-    .map(d => ({ ...d, b: d.balance, rate: (d.apr || 0) / 1200, alloc: 0 }));
+    .map(d => ({ ...d, b: effBal(d), rate: (d.apr || 0) / 1200, alloc: 0 }));
 
   const monthlyMin = pool.reduce((s, d) => s + getMinPayment(d), 0);
   let rem = monthlyMin + Math.max(0, eb.optimal);
@@ -1223,8 +1309,7 @@ function firstMonthBreakdown(source, eb, strategy) {
 
   // Optimal extra
   const active = pool.filter(d => d.b - d.alloc > 0.005);
-  if (strategy === 'avalanche') active.sort((a, b) => avSortKey(b) - avSortKey(a));
-  else                          active.sort((a, b) => a.b - b.b);
+  strategySort(active, strategy);
   for (const d of active) {
     if (rem <= 0) break;
     const p = Math.min(rem, d.b - d.alloc); d.alloc += p; rem -= p;
@@ -1233,7 +1318,7 @@ function firstMonthBreakdown(source, eb, strategy) {
   return pool.map(d => {
     const monthlyInterest = d.b * d.rate;
     const principal = Math.max(0, d.alloc - monthlyInterest);
-    return { id: d.id, name: d.name, payment: d.alloc, balance: d.balance, apr: d.apr, monthlyInterest, principal };
+    return { id: d.id, name: d.name, payment: d.alloc, balance: d.b, apr: d.apr, monthlyInterest, principal, monthsPastDue: d.monthsPastDue || 0 };
   });
 }
 
@@ -1326,7 +1411,7 @@ function renderSummary() {
   if (!lastAv || !lastSb) return;
   const r = activeTab === 'avalanche' ? lastAv : lastSb;
   const o = activeTab === 'avalanche' ? lastSb  : lastAv;
-  const totalDebt = debts.filter(d => d.balance > 0).reduce((s, d) => s + d.balance, 0);
+  const totalDebt = debts.filter(d => d.balance > 0).reduce((s, d) => s + d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0), 0);
   const saved = o.interest - r.interest;
   const faster = o.months - r.months;
 
@@ -1381,11 +1466,8 @@ function renderSummary() {
 function renderBreakdown() {
   const r = activeTab === 'avalanche' ? lastAv : lastSb;
   if (!r) return;
-  const sorted = [...r.breakdown].sort((a, b) =>
-    activeTab === 'avalanche'
-      ? avSortKey(b) - avSortKey(a)          // highest APR first
-      : a.balance - b.balance                // lowest balance first
-  );
+  const sorted = [...r.breakdown];
+  strategySort(sorted, activeTab);
   const maxP = Math.max(...sorted.map(d => d.payment));
   document.getElementById('breakdownList').innerHTML = sorted.map(d => {
     const pct = maxP > 0 ? (d.payment / maxP) * 100 : 0;
@@ -1393,10 +1475,15 @@ function renderBreakdown() {
     const intStr = d.monthlyInterest > 0.01
       ? `<span style="color:#c4824a">Interest: ${fmtDec(d.monthlyInterest)}</span> · Principal: ${fmtDec(d.principal)}`
       : '';
+    const badge = d.monthsPastDue >= 3
+      ? `<span class="priority-badge urgent">Paying first · 3+ mo past due</span>`
+      : d.monthsPastDue >= 1
+      ? `<span class="priority-badge overdue">Paying second · past due</span>`
+      : '';
     return `
       <div class="breakdown-row">
         <div class="breakdown-name">
-          ${d.name || 'Unnamed debt'}
+          ${d.name || 'Unnamed debt'}${badge}
           <small>${d.apr.toFixed(1)}% APR &middot; ${fmt(d.balance)} balance${intStr ? '<br>' + intStr : ''}</small>
         </div>
         <div class="breakdown-bar-wrap">
@@ -1550,7 +1637,7 @@ function run() {
   document.getElementById('sbBadge').style.display = sbFaster > 0   ? 'inline-flex' : 'none';
 
   // Chart subtitle
-  const total = valid.reduce((s, d) => s + d.balance, 0);
+  const total = valid.reduce((s, d) => s + d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0), 0);
   document.getElementById('chartSubtitle').textContent = `Starting from ${fmt(total)} total`;
 
   drawChart(lastAv, lastSb);
@@ -1576,6 +1663,9 @@ function encodeUrl() {
         t: d.debtType,
         u: d.useMinimum ? 1 : 0,
         lt: d.loanType || '',
+        pd: d.pastDue ? 1 : 0,
+        mpd: d.monthsPastDue || 0,
+        pda: d.pastDueAmount || 0,
       })),
       e: extras.map(e => [e.amount, e.freq, e.targetId || '']),
     };
@@ -1593,6 +1683,7 @@ function decodeUrl() {
       if (Array.isArray(s.d)) s.d.forEach(d => addDebt({
         name: d.n, balance: d.b, apr: d.a, minPayment: d.m,
         debtType: d.t, useMinimum: !!d.u, loanType: d.lt || 'federal',
+        pastDue: !!d.pd, monthsPastDue: d.mpd || 0, pastDueAmount: d.pda || 0,
       }));
     } else if (s.v === 2) {
       // Legacy v2 — map old types to new, restore what we can
