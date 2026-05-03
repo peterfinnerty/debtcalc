@@ -753,6 +753,17 @@ function updateSavingsCallout() {
   el.style.display = '';
 }
 
+// For a payoff line: show dot only at the first $0 point, hide all after; same for line segments
+const postZeroPtRadius = (ctx, r) => {
+  const y = ctx.parsed.y;
+  if (y > 0) return r;
+  const firstZero = ctx.dataset.data.findIndex(v => v != null && v <= 0);
+  return ctx.dataIndex === firstZero ? r : 0;
+};
+const postZeroSegment = {
+  borderColor: ctx => (ctx.p0.parsed.y <= 0 && ctx.p1.parsed.y <= 0) ? 'transparent' : undefined,
+};
+
 function drawChart(av, sb, identical) {
   // When original schedule is active, extend to show full baseline; otherwise anchor to current payoff
   const len = Math.max(
@@ -772,46 +783,24 @@ function drawChart(av, sb, identical) {
   const labels = indices.map(i => i === 0 ? 'Now' : monthsToDate(i));
   const thin = (arr) => { const p = fullPad(arr); return indices.map(i => p[i]); };
 
+  const payoffDataset = (label, data, color, bgColor) => ({
+    label, data,
+    borderColor: color,
+    backgroundColor: bgColor,
+    borderWidth: 2.5,
+    pointRadius: ctx => postZeroPtRadius(ctx, 3),
+    pointHoverRadius: ctx => postZeroPtRadius(ctx, 6),
+    pointBackgroundColor: color,
+    pointBorderColor: color,
+    segment: postZeroSegment,
+    tension: 0.42, fill: false,
+  });
+
   const datasets = identical
-    ? [
-        {
-          label: 'Balance',
-          data: thin(av.history),
-          borderColor: '#c4824a',
-          backgroundColor: 'rgba(196,130,74,0.07)',
-          borderWidth: 2.5,
-          pointRadius: 3,
-          pointHoverRadius: 6,
-          pointBackgroundColor: '#c4824a',
-          pointBorderColor: '#c4824a',
-          tension: 0.42, fill: false,
-        },
-      ]
+    ? [ payoffDataset('Balance', thin(av.history), '#c4824a', 'rgba(196,130,74,0.07)') ]
     : [
-        {
-          label: 'Avalanche',
-          data: thin(av.history),
-          borderColor: '#c4824a',
-          backgroundColor: 'rgba(196,130,74,0.07)',
-          borderWidth: 2.5,
-          pointRadius: 3,
-          pointHoverRadius: 6,
-          pointBackgroundColor: '#c4824a',
-          pointBorderColor: '#c4824a',
-          tension: 0.42, fill: false,
-        },
-        {
-          label: 'Snowball',
-          data: thin(sb.history),
-          borderColor: '#4a7a9b',
-          backgroundColor: 'rgba(74,122,155,0.05)',
-          borderWidth: 2.5,
-          pointRadius: 3,
-          pointHoverRadius: 6,
-          pointBackgroundColor: '#4a7a9b',
-          pointBorderColor: '#4a7a9b',
-          tension: 0.42, fill: false,
-        },
+        payoffDataset('Avalanche', thin(av.history), '#c4824a', 'rgba(196,130,74,0.07)'),
+        payoffDataset('Snowball',  thin(sb.history), '#4a7a9b', 'rgba(74,122,155,0.05)'),
       ];
 
   // Preview line — faded solid green, only when modal is open
@@ -876,6 +865,7 @@ function drawChart(av, sb, identical) {
       plugins: {
         legend: { display: false },
         tooltip: {
+          position: 'nearest',
           backgroundColor: '#fff', borderColor: '#e8e0d0', borderWidth: 1,
           titleColor: '#2d2620', bodyColor: '#7a6e65', padding: 10, cornerRadius: 8,
           callbacks: { label: tooltipLabel }
