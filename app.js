@@ -827,7 +827,7 @@ function drawChart(av, sb, identical) {
       borderColor: 'rgba(150,145,138,0.45)',
       backgroundColor: 'transparent',
       borderWidth: 2,
-      borderDash: [5, 5],
+      borderDash: [],
       pointRadius: 0,
       pointHoverRadius: 0,
       tension: 0.42, fill: false,
