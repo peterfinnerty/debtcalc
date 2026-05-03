@@ -193,7 +193,7 @@ function checkPaymentWarn(debt) {
 
   if (debt.minPayment < estMin) {
     if (!window._pmtWarnText) window._pmtWarnText = {};
-    window._pmtWarnText[debt.id] = `This may be below the typical minimum payment. Most lenders require at least ${fmt(Math.ceil(estMin))}/mo.`;
+    window._pmtWarnText[debt.id] = `This may be below the typical minimum payment. Lenders may require at least ${fmt(Math.ceil(estMin))}/mo.`;
     warnEl.style.display = 'inline-flex';
   } else {
     warnEl.style.display = 'none';
