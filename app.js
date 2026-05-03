@@ -20,6 +20,8 @@ let lastSimKey     = '';
 let previewAmount  = 50;
 let previewFreq    = 'monthly';
 let previewHistory = null;
+let baselineHistory = null;
+let showOriginalSchedule = true;
 
 const FREQ = {
   daily:       { label: 'Daily',          mult: 365 / 12 },
@@ -728,7 +730,15 @@ function bump() {
 // ==========================================================
 //  CHART
 // ==========================================================
+function toggleOriginalSchedule() {
+  showOriginalSchedule = !showOriginalSchedule;
+  document.getElementById('originalScheduleLegend').classList.toggle('is-off', !showOriginalSchedule);
+  if (lastAv && lastSb) drawChart(lastAv, lastSb, lastIdentical);
+}
+
 function drawChart(av, sb, identical) {
+  // Anchor the chart window to the current payoff length — don't extend it for the baseline
+  // (baseline is clipped to fit; a line ending above zero shows it continues further)
   const len = Math.max(av.history.length, sb.history.length, previewHistory ? previewHistory.length : 0);
   const fullPad = (arr) => { const a = [...arr]; while (a.length < len) a.push(0); return a; };
 
@@ -795,6 +805,27 @@ function drawChart(av, sb, identical) {
       pointHoverRadius: 5,
       pointBackgroundColor: 'rgba(90,138,106,0.4)',
       pointBorderColor: 'rgba(90,138,106,0.4)',
+      tension: 0.42, fill: false,
+    });
+  }
+
+  // Original schedule — faint grey dashed, clipped to current chart window
+  if (baselineHistory && showOriginalSchedule) {
+    const clipped = baselineHistory.slice(0, len);
+    const thinBaseline = (arr) => {
+      const padded = [...arr];
+      while (padded.length < len) padded.push(null);
+      return indices.map(i => i < arr.length ? arr[i] : null);
+    };
+    datasets.push({
+      label: 'Original schedule',
+      data: thinBaseline(clipped),
+      borderColor: 'rgba(150,145,138,0.45)',
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      borderDash: [5, 5],
+      pointRadius: 0,
+      pointHoverRadius: 0,
       tension: 0.42, fill: false,
     });
   }
@@ -1139,6 +1170,10 @@ function run() {
   if (simKey !== lastSimKey) {
     lastAv = simulate(valid, eb, 'avalanche');
     lastSb = simulate(valid, eb, 'snowball');
+    const hasExtras = eb.optimal > 0 || eb.oneTime > 0 || eb.targeted.length > 0;
+    baselineHistory = hasExtras
+      ? simulate(valid, { optimal: 0, oneTime: 0, targeted: [] }, 'avalanche').history
+      : null;
     lastSimKey = simKey;
   }
   if (!lastAv || !lastSb) return;
@@ -1150,8 +1185,12 @@ function run() {
   tabsWrap.classList.toggle('strategies-same', identical);
   const strategiesSameNote = document.getElementById('strategiesSameNote');
   strategiesSameNote.style.visibility = identical ? 'visible' : 'hidden';
+  const origLegend = document.getElementById('originalScheduleLegend');
+  if (origLegend) origLegend.style.display = baselineHistory ? '' : 'none';
   const legend = document.getElementById('chartLegend');
-  if (legend) legend.style.display = identical ? 'none' : '';
+  if (legend) legend.style.display = (identical && !baselineHistory) ? 'none' : '';
+  document.getElementById('avLegendItem')?.style.setProperty('display', identical ? 'none' : '');
+  document.getElementById('sbLegendItem')?.style.setProperty('display', identical ? 'none' : '');
 
   // Chart subtitle
   const total = valid.reduce((s, d) => s + d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0), 0);

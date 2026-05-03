@@ -411,6 +411,15 @@
     .legend-dot {
       width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
     }
+    .legend-dot--dashed {
+      background: transparent;
+      border-radius: 0;
+      width: 16px; height: 2px;
+      border-top: 2px dashed rgba(150,145,138,0.65);
+      margin-top: 1px;
+    }
+    .legend-item--toggle { cursor: pointer; user-select: none; }
+    .legend-item--toggle.is-off { opacity: 0.4; text-decoration: line-through; }
     .chart-wrap { position: relative; height: 280px; }
 
     /* Extra payment preview button */
@@ -732,11 +741,14 @@
           </div>
           <div class="chart-header-right">
             <div class="chart-legend" id="chartLegend">
-              <div class="legend-item">
+              <div class="legend-item" id="avLegendItem">
                 <div class="legend-dot" style="background:var(--avalanche)"></div> Avalanche
               </div>
-              <div class="legend-item">
+              <div class="legend-item" id="sbLegendItem">
                 <div class="legend-dot" style="background:var(--snowball)"></div> Snowball
+              </div>
+              <div class="legend-item legend-item--toggle" id="originalScheduleLegend" style="display:none" onclick="toggleOriginalSchedule()">
+                <div class="legend-dot legend-dot--dashed" id="originalScheduleDot"></div> Original schedule
               </div>
             </div>
             <button class="extra-btn" id="extraBtn">Pay extra?</button>
