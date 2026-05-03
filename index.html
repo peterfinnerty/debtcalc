@@ -419,10 +419,9 @@
       border-radius: 10px; padding: 10px 14px;
       pointer-events: none;
     }
-    .savings-hdr { font-size: 0.82rem; font-weight: 700; color: var(--green); margin-bottom: 3px; }
-    .savings-row { display: flex; align-items: baseline; gap: 3px; line-height: 1.4; }
-    .savings-val { font-size: 0.82rem; font-weight: 700; color: var(--green); }
-    .savings-lbl { font-size: 0.82rem; color: var(--green); opacity: 0.75; }
+    .savings-hdr { font-size: 0.82rem; font-weight: 600; color: var(--green); margin-bottom: 3px; }
+    .savings-row { display: flex; align-items: baseline; gap: 4px; line-height: 1.4; font-size: 0.82rem; color: var(--green); opacity: 0.85; }
+    .savings-val { font-size: 0.82rem; font-weight: 400; color: var(--green); }
 
     /* Extra payment preview button */
     .extra-btn {
@@ -799,8 +798,8 @@
           <canvas id="payoffChart"></canvas>
           <div class="savings-callout" id="savingsCallout" style="display:none">
             <div class="savings-hdr">Paying extra saves:</div>
-            <div class="savings-row"><span class="savings-val" id="savingsMonths"></span></div>
-            <div class="savings-row"><span class="savings-val" id="savingsInterest"></span></div>
+            <div class="savings-row">· <span class="savings-val" id="savingsMonths"></span></div>
+            <div class="savings-row">· <span class="savings-val" id="savingsInterest"></span></div>
           </div>
         </div>
       </div>
