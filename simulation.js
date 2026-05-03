@@ -353,17 +353,22 @@ function buildSchedule(source, eb, strategy) {
 //  PURE WARNINGS (no DOM)
 // Returns an array of warning objects instead of rendering HTML.
 // ==========================================================
-function calcWarnings(valid, sim) {
+function calcWarnings(valid, sim, eb) {
   const warnings = [];
+  const totalOptional = (eb && eb.optimal) ? eb.optimal : 0;
+  const targeted      = (eb && eb.targeted) ? eb.targeted : [];
 
-  // Rule 1 — payment does not cover monthly interest
+  // Rule 1 — payment does not cover monthly interest (after extras)
   for (const d of valid) {
     const rate = (d.apr || 0) / 1200;
     const monthlyInterest = d.balance * rate;
-    const effectivePmt = (d.debtType === 'credit_card' && d.useMinimum)
+    const basePmt = (d.debtType === 'credit_card' && d.useMinimum)
       ? Math.min(d.balance, Math.max(25, d.balance * 0.01 + monthlyInterest, d.balance * 0.02))
       : (d.minPayment || 0);
-    if (d.apr > 0 && effectivePmt > 0 && effectivePmt <= monthlyInterest) {
+    const targetedExtra = targeted.filter(t => t.id == d.id).reduce((s, t) => s + t.amount, 0);
+    // Optimal extras flow to the highest-APR debt first; credit all of it as available
+    const effectivePmt = basePmt + targetedExtra + totalOptional;
+    if (d.apr > 0 && basePmt > 0 && effectivePmt <= monthlyInterest) {
       const minNeeded = Math.ceil(monthlyInterest + 1);
       const label = d.name || `Debt ${valid.indexOf(d) + 1}`;
       warnings.push({ type: 'interest-exceeds-payment', label, minNeeded });

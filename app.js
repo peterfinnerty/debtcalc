@@ -995,7 +995,7 @@ function renderWarnings(valid, sim) {
   const panel = document.getElementById('warningsPanel');
   if (!panel) return;
 
-  const raw = calcWarnings(valid, sim);
+  const raw = calcWarnings(valid, sim, extrasBreakdown());
   if (!raw.length) { panel.style.display = 'none'; return; }
 
   const dangerIcon  = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;margin-top:3px"><circle cx="7" cy="7" r="6.5" stroke="#8b3428" stroke-width="1.3"/><path d="M7 4v3.5" stroke="#8b3428" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="10" r="0.75" fill="#8b3428"/></svg>`;
