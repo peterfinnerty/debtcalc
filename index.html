@@ -795,7 +795,7 @@ function updateCardForType(id, type) {
         </div>`;
       if (lt === 'federal') {
         calloutEl.className = 'debt-callout blue show';
-        calloutEl.innerHTML = 'Federal loans have forgiveness options that may make aggressive paydown the wrong move. <a href="https://studentaid.gov" target="_blank">Check studentaid.gov</a> before overpaying.';
+        calloutEl.innerHTML = 'Federal loans have forgiveness options that may make aggressive paydown the wrong move. <a href="https://studentaid.gov/loan-simulator" target="_blank">Check studentaid.gov</a> to understand your options.';
       } else {
         calloutEl.className = 'debt-callout';
         calloutEl.innerHTML = '';
@@ -865,7 +865,7 @@ function setStudentLoanType(id, lt) {
   if (callout) {
     if (lt === 'federal') {
       callout.className = 'debt-callout blue show';
-      callout.innerHTML = 'Federal loans have forgiveness options that may make aggressive paydown the wrong move. <a href="https://studentaid.gov" target="_blank">Check studentaid.gov</a> before overpaying.';
+      callout.innerHTML = 'Federal loans have forgiveness options that may make aggressive paydown the wrong move. <a href="https://studentaid.gov/loan-simulator" target="_blank">Check studentaid.gov</a> to understand your options.';
     } else {
       callout.className = 'debt-callout';
       callout.innerHTML = '';
@@ -1426,7 +1426,7 @@ function renderWarnings(valid) {
 
     // 3. Federal student loan → forgiveness callout
     if (d.debtType === 'student_loan' && d.loanType === 'federal') {
-      warnings.push({ cls: 'info', text: `<strong>${d.name || 'Federal student loan'}</strong>: you may qualify for income-driven repayment or Public Service Loan Forgiveness (PSLF). <a href="https://studentaid.gov/manage-loans/repayment/plans" target="_blank" rel="noopener">Learn more →</a>` });
+      warnings.push({ cls: 'info', text: `<strong>${d.name || 'Federal student loan'}</strong>: you may qualify for income-driven repayment or Public Service Loan Forgiveness (PSLF). <a href="https://studentaid.gov/loan-simulator" target="_blank" rel="noopener">Learn more →</a>` });
     }
 
     // 4. Other debt → negotiate suggestion
