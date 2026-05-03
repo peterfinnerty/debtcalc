@@ -1125,6 +1125,7 @@ function updatePreview() {
 
 function commitExtra() {
   if (previewAmount <= 0) { closeExtraModal(); return; }
+  const isFirst = extras.every(e => e.amount <= 0);
   addExtra({ amount: previewAmount, freq: previewFreq, targetId: null });
   previewHistory = null;
   document.getElementById('extraModal').classList.remove('open', 'has-insight');
@@ -1133,6 +1134,7 @@ function commitExtra() {
   document.getElementById('previewCallout').style.display = 'none';
   document.removeEventListener('mousedown', outsideClickClose);
   run();
+  if (isFirst && baselineResult && !showOriginalSchedule) toggleOriginalSchedule();
 }
 
 // ==========================================================
