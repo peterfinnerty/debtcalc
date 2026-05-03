@@ -748,7 +748,7 @@ function updateSavingsCallout() {
   const monthsFaster = baselineResult.months - lastAv.months;
   const interestSaved = baselineResult.interest - lastAv.interest;
   document.getElementById('savingsMonths').textContent = monthsLabel(monthsFaster);
-  document.getElementById('savingsInterest').textContent = fmt(interestSaved);
+  document.getElementById('savingsInterest').textContent = fmt(interestSaved) + ' in interest';
   el.style.display = '';
 }
 
@@ -1106,10 +1106,11 @@ function updatePreview() {
     const diffInt = lastAv.interest - pr.interest;
     const modal = document.getElementById('extraModal');
     if (diffMo > 0 || diffInt > 0.5) {
-      const lines = ['Paying extra saves:'];
-      if (diffMo  > 0)   lines.push(monthsLabel(diffMo) + ' faster');
-      if (diffInt > 0.5) lines.push(fmt(diffInt) + ' in interest');
-      insight.innerHTML = lines.map((l, i) => i === 0 ? `<span style="opacity:0.7">${l}</span>` : `<strong>${l}</strong>`).join('<br>');
+      const parts = [];
+      if (diffMo  > 0)   parts.push(monthsLabel(diffMo) + ' sooner');
+      if (diffInt > 0.5) parts.push(fmt(diffInt) + ' saved in interest');
+      const text = parts.join(' · ');
+      insight.textContent = text;
       insight.style.display = '';
       modal.classList.add('has-insight');
       callout.style.display = 'none';
