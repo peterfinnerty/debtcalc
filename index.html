@@ -415,13 +415,13 @@
     .chart-btns { display: flex; gap: 8px; align-items: center; }
     .savings-callout {
       position: absolute; top: 16px; right: 12px;
-      background: #fff; border: 1.5px solid var(--border);
+      background: var(--green-light); border: 1.5px solid rgba(90,138,106,0.2);
       border-radius: 10px; padding: 10px 14px;
       pointer-events: none;
     }
     .savings-row { display: flex; align-items: baseline; gap: 3px; line-height: 1.5; }
     .savings-val { font-size: 0.82rem; font-weight: 700; color: var(--green); }
-    .savings-lbl { font-size: 0.75rem; color: var(--text-muted); }
+    .savings-lbl { font-size: 0.75rem; color: var(--green); opacity: 0.75; }
 
     /* Extra payment preview button */
     .extra-btn {
@@ -760,7 +760,7 @@
               </div>
             </div>
             <div class="chart-btns">
-              <button class="orig-btn" id="origBtn" onclick="toggleOriginalSchedule()">Original schedule</button>
+              <button class="orig-btn" id="origBtn" onclick="toggleOriginalSchedule()">Show original</button>
               <button class="extra-btn" id="extraBtn">Pay extra?</button>
             </div>
             <div class="preview-callout" id="previewCallout"></div>

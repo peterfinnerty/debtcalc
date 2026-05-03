@@ -733,7 +733,9 @@ function bump() {
 // ==========================================================
 function toggleOriginalSchedule() {
   showOriginalSchedule = !showOriginalSchedule;
-  document.getElementById('origBtn').classList.toggle('active', showOriginalSchedule);
+  const btn = document.getElementById('origBtn');
+  btn.classList.toggle('active', showOriginalSchedule);
+  btn.textContent = showOriginalSchedule ? 'Hide original' : 'Show original';
   updateSavingsCallout();
   if (lastAv && lastSb) drawChart(lastAv, lastSb, lastIdentical);
 }
@@ -741,7 +743,8 @@ function toggleOriginalSchedule() {
 function updateSavingsCallout() {
   const el = document.getElementById('savingsCallout');
   if (!el) return;
-  if (!showOriginalSchedule || !baselineResult || !lastAv) { el.style.display = 'none'; return; }
+  const modalOpen = document.getElementById('extraModal').classList.contains('open');
+  if (!baselineResult || !lastAv || modalOpen) { el.style.display = 'none'; return; }
   const monthsFaster = baselineResult.months - lastAv.months;
   const interestSaved = baselineResult.interest - lastAv.interest;
   document.getElementById('savingsMonths').textContent = monthsLabel(monthsFaster);
@@ -1048,6 +1051,7 @@ function renderPayoffTimeline() {
 function openExtraModal() {
   document.getElementById('extraModal').classList.add('open');
   document.getElementById('extraBtn').classList.add('active');
+  document.getElementById('savingsCallout').style.display = 'none';
   // Sync inputs to current state
   document.getElementById('emInput').value = normalizeDollarInput(previewAmount);
   document.getElementById('emSlider').value = Math.min(previewAmount, 500);
@@ -1065,6 +1069,7 @@ function closeExtraModal() {
   document.removeEventListener('mousedown', outsideClickClose);
   previewHistory = null;
   if (lastAv && lastSb) drawChart(lastAv, lastSb, lastIdentical);
+  updateSavingsCallout();
 }
 
 function outsideClickClose(e) {
@@ -1101,15 +1106,13 @@ function updatePreview() {
     const diffInt = lastAv.interest - pr.interest;
     const modal = document.getElementById('extraModal');
     if (diffMo > 0 || diffInt > 0.5) {
-      const parts = [];
-      if (diffMo  > 0)   parts.push(monthsLabel(diffMo) + ' sooner');
-      if (diffInt > 0.5) parts.push(fmt(diffInt) + ' saved in interest');
-      const text = parts.join(' · ');
-      insight.textContent = text;
+      const lines = ['Paying extra saves:'];
+      if (diffMo  > 0)   lines.push(monthsLabel(diffMo) + ' faster');
+      if (diffInt > 0.5) lines.push(fmt(diffInt) + ' in interest');
+      insight.innerHTML = lines.map((l, i) => i === 0 ? `<span style="opacity:0.7">${l}</span>` : `<strong>${l}</strong>`).join('<br>');
       insight.style.display = '';
       modal.classList.add('has-insight');
-      callout.textContent = text;
-      callout.style.display = '';
+      callout.style.display = 'none';
     } else {
       insight.style.display = 'none';
       modal.classList.remove('has-insight');
@@ -1215,6 +1218,7 @@ function run() {
   document.getElementById('chartSubtitle').textContent = `Starting from ${fmt(total)} total`;
 
   drawChart(lastAv, lastSb, identical);
+  updateSavingsCallout();
   if (document.getElementById('extraModal').classList.contains('open')) updatePreview();
   renderSummary();
   renderBreakdown();
