@@ -728,13 +728,22 @@ function moneyPaymentField(id, debt) {
   return `
     <div class="field-row full" style="margin-top:4px">
       <div class="field">
-        <label>Monthly payment</label>
+        <label>What I plan to pay each month</label>
         <div class="input-wrap has-prefix">
           <span class="input-prefix">$</span>
           <input type="text" inputmode="decimal" placeholder="0" data-field="minPayment" data-id="${id}" autocomplete="off" value="${val}">
         </div>
       </div>
     </div>`;
+}
+
+// Calculate a first-month minimum payment estimate for display
+function calcMinPreview(debt) {
+  if (!debt.balance || debt.balance <= 0) return '~$25/mo';
+  const rate = (debt.apr || 0) / 1200;
+  const interest = debt.balance * rate;
+  const min = Math.min(debt.balance, Math.max(25, debt.balance * 0.01 + interest, debt.balance * 0.02));
+  return '~' + fmt(min) + '/mo';
 }
 
 function updateCardForType(id, type) {
@@ -756,22 +765,24 @@ function updateCardForType(id, type) {
   switch (type) {
     // ── Credit Card ───────────────────────────────────────────
     case 'credit_card': {
-      const pmtVal = debt.useMinimum ? '' : (debt.minPayment ? fmtInput(debt.minPayment) : '');
+      const useMin = debt.useMinimum;
+      const pmtVal = useMin ? '' : (debt.minPayment ? fmtInput(debt.minPayment) : '');
+      const placeholder = useMin ? calcMinPreview(debt) : '150';
       typeFieldsEl.innerHTML = `
         <div class="field-row full" style="margin-top:4px">
           <div class="field">
-            <label>Monthly payment</label>
-            <div class="input-wrap has-prefix">
-              <span class="input-prefix">$</span>
-              <input type="text" inputmode="decimal" placeholder="150" data-field="minPayment" data-id="${id}" autocomplete="off" value="${pmtVal}"${debt.useMinimum ? ' disabled style="opacity:0.4"' : ''}>
+            <label>What I plan to pay each month</label>
+            <div class="input-wrap${useMin ? '' : ' has-prefix'}">
+              ${useMin ? '' : '<span class="input-prefix">$</span>'}
+              <input type="text" inputmode="decimal" placeholder="${placeholder}" data-field="minPayment" data-id="${id}" autocomplete="off" value="${pmtVal}"${useMin ? ' disabled style="opacity:0.5;font-style:italic"' : ''}>
             </div>
           </div>
         </div>
         <label class="checkbox-label" style="margin-top:10px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.88rem;color:var(--text-muted)">
-          <input type="checkbox" data-field="useMinimum" data-id="${id}" onchange="onUseMinimumChange(${id})"${debt.useMinimum ? ' checked' : ''}>
+          <input type="checkbox" data-field="useMinimum" data-id="${id}" onchange="onUseMinimumChange(${id})"${useMin ? ' checked' : ''}>
           I don't know — use the minimum
         </label>
-        <div class="calc-hint${debt.useMinimum ? ' show' : ''}" id="minHint-${id}" style="margin-top:6px">
+        <div class="calc-hint${useMin ? ' show' : ''}" id="minHint-${id}" style="margin-top:6px">
           Minimum = max($25, 1% of balance + interest, 2% of balance). Recalculates monthly as balance drops.
         </div>`;
       calloutEl.className = 'debt-callout';
@@ -843,14 +854,8 @@ function onUseMinimumChange(id) {
   if (!debt) return;
   const cb = document.querySelector(`[data-field="useMinimum"][data-id="${id}"]`);
   debt.useMinimum = !!cb?.checked;
-  const pmtInput = document.querySelector(`[data-field="minPayment"][data-id="${id}"]`);
-  const hint = document.getElementById('minHint-' + id);
-  if (pmtInput) {
-    pmtInput.disabled = debt.useMinimum;
-    pmtInput.style.opacity = debt.useMinimum ? '0.4' : '';
-    if (debt.useMinimum) { pmtInput.value = ''; debt.minPayment = 0; }
-  }
-  if (hint) hint.classList.toggle('show', debt.useMinimum);
+  if (debt.useMinimum) debt.minPayment = 0;
+  updateCardForType(id, 'credit_card');
   bump();
 }
 
