@@ -109,9 +109,9 @@
       padding: 16px;
       transition: border-color var(--transition);
     }
-    .debt-card:focus-within:not(.collapsed) { border-color: var(--green); }
+    .debt-card:focus-within:not(.collapsed) { border-color: var(--amber); }
     .debt-card.collapsed { padding: 12px 16px; cursor: pointer; }
-    .debt-card.collapsed:hover { border-color: var(--green); }
+    .debt-card.collapsed:hover { border-color: var(--border); }
 
     .debt-card-header {
       display: flex;
@@ -260,40 +260,42 @@
 
     .btn-add-debt {
       width: 100%; padding: 10px;
-      background: none; border: 2px dashed var(--border);
+      background: none; border: 1px solid #f0d0b0;
       border-radius: var(--radius);
-      color: var(--text-muted); font-size: 0.875rem;
+      color: var(--amber); font-size: 0.875rem;
       cursor: pointer; transition: all var(--transition);
       display: flex; align-items: center; justify-content: center; gap: 6px;
     }
     .btn-add-debt:hover {
-      border-color: var(--green); color: var(--green); background: var(--green-light);
+      border-color: var(--amber); background: var(--amber-light);
     }
 
     /* Extra payments */
     .extra-section { margin-top: 24px; }
     .extras-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
     .extra-card {
-      background: var(--amber-light);
-      border: 1px solid #f0d0b0;
+      background: var(--green-light);
+      border: 1px solid #c0dcc8;
       border-radius: var(--radius);
       padding: 14px;
       transition: border-color var(--transition);
     }
-    .extra-card:focus-within { border-color: var(--amber); }
+    .extra-card:focus-within { border-color: var(--green); }
+    .extra-card input, .extra-card select { border-color: #c0dcc8; background: white; }
+    .extra-card input:focus, .extra-card select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(90,138,106,0.15); }
     .extra-card-header {
       display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
     }
-    .extra-card-label { font-size: 0.72rem; font-weight: 700; color: var(--amber); text-transform: uppercase; letter-spacing: 0.06em; }
+    .extra-card-label { font-size: 0.72rem; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: 0.06em; }
     .btn-add-extra {
       width: 100%; padding: 10px;
-      background: none; border: 2px dashed #f0d0b0;
+      background: none; border: 1px solid var(--border);
       border-radius: var(--radius);
-      color: var(--amber); font-size: 0.875rem;
+      color: var(--text-muted); font-size: 0.875rem;
       cursor: pointer; transition: all var(--transition);
       display: flex; align-items: center; justify-content: center; gap: 6px;
     }
-    .btn-add-extra:hover { border-color: var(--amber); background: var(--amber-light); }
+    .btn-add-extra:hover { border-color: var(--green); color: var(--green); background: var(--green-light); }
 
     /* Select inputs */
     select {
@@ -424,11 +426,8 @@
     }
     .breakdown-name { font-size: 0.875rem; font-weight: 600; flex: 1; min-width: 0; }
     .breakdown-name small { display: block; font-size: 0.71rem; color: var(--text-muted); font-weight: 400; margin-top: 1px; }
-    .breakdown-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+    .breakdown-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
     .breakdown-amount { font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
-    .pi-bar { display: flex; width: 100px; height: 5px; border-radius: 99px; overflow: hidden; gap: 2px; }
-    .pi-bar-principal { background: var(--green); height: 100%; border-radius: 99px; }
-    .pi-bar-interest  { background: var(--avalanche); height: 100%; border-radius: 99px; flex: 1; }
     .pi-labels { font-size: 0.68rem; color: var(--text-muted); white-space: nowrap; }
     .pi-labels .pi-i { color: #c4824a; }
 
@@ -488,7 +487,7 @@
 
     /* Email CTA */
     .cta-card {
-      background: linear-gradient(135deg, #f0f7f2 0%, #eaf0f8 100%);
+      background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow-sm);
     }
@@ -503,6 +502,9 @@
       transition: background var(--transition); white-space: nowrap;
     }
     .btn-cta:hover { background: #4a7a5a; }
+    .cta-fine {
+      font-size: 0.72rem; color: var(--text-muted); margin-top: 8px; text-align: center; line-height: 1.4;
+    }
     .cta-thanks {
       display: none; font-size: 0.875rem; color: var(--green);
       font-weight: 600; padding: 6px 0; text-align: center;
@@ -552,8 +554,8 @@
 <header>
   <div class="logo-mark">
     <svg viewBox="0 0 18 18" fill="none">
-      <path d="M2 4 L5 8 L9 11 L13 14" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="14" cy="14" r="2.2" fill="white" opacity="0.65"/>
+      <path d="M2 7 L5 5 L8 9 L11 6 L15 14" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="15" cy="14" r="2" fill="white" opacity="0.65"/>
     </svg>
   </div>
   <h1>Debt Payoff Calculator <span>— your path to zero</span></h1>
@@ -595,9 +597,9 @@
   <div class="right-panel" id="rightPanel">
 
     <div class="empty-state" id="emptyState">
-      <div class="empty-icon">&#128200;</div>
+      <div class="empty-icon">&#128176;</div>
       <h2>Add your first debt to get started</h2>
-      <p>Fill in a debt on the left and we'll show you exactly when you'll be free of it, and how much you'll save by paying it down strategically.</p>
+      <p>Add your first debt and we'll show you exactly when you'll be free of it. Your data never leaves your browser.</p>
     </div>
 
     <div id="results" style="display:none">
@@ -662,21 +664,20 @@
 
       <!-- Email CTA -->
       <div class="cta-card fade-in">
-        <div class="cta-title">Want to save and track your plan over time?</div>
-        <div class="cta-sub">We'll send you a link back to this exact calculator whenever you need a check-in.</div>
+        <div class="cta-title">Save your plan</div>
+        <div class="cta-sub">Enter your email and we'll send you a link back to this exact plan.</div>
         <div class="cta-form" id="ctaForm">
-          <input type="email" id="ctaEmail" placeholder="your@email.com">
-          <button class="btn-cta" onclick="submitEmail()">Send it to me</button>
+          <input type="email" id="ctaEmail" placeholder="your@email.com" autocomplete="email">
+          <button class="btn-cta" id="ctaBtn" onclick="submitEmail()">Email me my plan</button>
         </div>
+        <div class="cta-fine" id="ctaFine">We'll occasionally send updates on new features. Unsubscribe anytime.</div>
         <div class="cta-thanks" id="ctaThanks">
-          You've got this. Check your inbox for the link.
+          Your plan link is on its way. Check your inbox.
         </div>
       </div>
 
       <!-- Footer -->
       <footer class="app-footer">
-        No data ever leaves your device.
-        <span class="footer-sep">·</span>
         <a href="privacy.html">Privacy Policy</a>
         <span class="footer-sep">·</span>
         <a href="terms.html">Terms of Service</a>
@@ -929,7 +930,7 @@ function updateCardForType(id, type) {
           </div>
           <label class="checkbox-label" style="margin-top:10px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.8rem;color:var(--text-muted)">
             <input type="checkbox" data-field="useMinimum" data-id="${id}" onchange="onUseMinimumChange(${id})"${useMin ? ' checked' : ''}>
-            I don't know — use the minimum
+            I don't know — estimate the minimum
             <span class="info-tooltip" onmouseenter="showInfoTooltip(this,'Minimum = max($25, 1% of balance + interest, 2% of balance). Recalculates each month as your balance drops.')" onmouseleave="hideInfoTooltip()"><i class="info-icon">i</i></span>
           </label>
         </div>`;
@@ -1051,6 +1052,9 @@ function addDebt(pre = {}) {
   if (dt === 'medical' || dt === 'collections') dt = 'other';
   if (!['credit_card','loan','student_loan','other'].includes(dt)) dt = 'credit_card';
 
+  // Collapse existing cards before adding the new one (so new card stays open)
+  if (debts.length > 0) collapseAllDebts();
+
   debts.push({
     id,
     name:          pre.name || '',
@@ -1098,9 +1102,6 @@ function addDebt(pre = {}) {
       if (pda) pda.value = fmtInput(pre.pastDueAmount);
     }
   }
-
-  // Auto-collapse any other expanded debts so new card has focus
-  if (debts.length > 1) collapseAllDebts();
 
   renumber();
   bump();
@@ -1620,13 +1621,9 @@ function renderBreakdown() {
       ? `<span class="priority-badge overdue">Paying second · past due</span>`
       : '';
     const hasInterest = d.monthlyInterest > 0.01 && d.payment > 0;
-    const principalPct = hasInterest ? Math.round((d.principal / d.payment) * 100) : 100;
-    const piBar = hasInterest ? `
-      <div class="pi-bar">
-        <div class="pi-bar-principal" style="width:${principalPct}%"></div>
-        <div class="pi-bar-interest"></div>
-      </div>
-      <div class="pi-labels">${fmtDec(d.principal)} P &middot; <span class="pi-i">${fmtDec(d.monthlyInterest)} I</span></div>` : '';
+    const piLine = hasInterest
+      ? `<div class="pi-labels">${fmtDec(d.principal)} principal &middot; <span class="pi-i">${fmtDec(d.monthlyInterest)} interest</span></div>`
+      : '';
     return `
       <div class="breakdown-row">
         <div class="breakdown-name">
@@ -1635,7 +1632,7 @@ function renderBreakdown() {
         </div>
         <div class="breakdown-right">
           <div class="breakdown-amount">${fmtDec(d.payment)}/mo</div>
-          ${piBar}
+          ${piLine}
         </div>
       </div>`;
   }).join('');
@@ -1859,11 +1856,37 @@ function fallbackCopy(text, cb) {
 // ==========================================================
 //  EMAIL CTA
 // ==========================================================
-function submitEmail() {
-  const v = document.getElementById('ctaEmail').value.trim();
-  if (!v || !v.includes('@')) { document.getElementById('ctaEmail').focus(); return; }
-  document.getElementById('ctaForm').style.display = 'none';
-  document.getElementById('ctaThanks').classList.add('show');
+async function submitEmail() {
+  const emailEl = document.getElementById('ctaEmail');
+  const btn     = document.getElementById('ctaBtn');
+  const v = emailEl.value.trim();
+  if (!v || !v.includes('@')) { emailEl.focus(); return; }
+
+  btn.textContent = 'Sending…';
+  btn.disabled = true;
+
+  // Make sure the URL is up to date before capturing it
+  encodeUrl();
+  const shareUrl = location.href;
+
+  try {
+    const res = await fetch('https://formspree.io/f/YOUR_FORMSPREE_ID', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ email: v, plan_url: shareUrl }),
+    });
+    if (res.ok) {
+      document.getElementById('ctaForm').style.display = 'none';
+      document.getElementById('ctaFine').style.display = 'none';
+      document.getElementById('ctaThanks').classList.add('show');
+    } else {
+      btn.textContent = 'Try again';
+      btn.disabled = false;
+    }
+  } catch (_) {
+    btn.textContent = 'Try again';
+    btn.disabled = false;
+  }
 }
 
 // ==========================================================
