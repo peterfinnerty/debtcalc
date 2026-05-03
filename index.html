@@ -214,6 +214,15 @@
       display: inline-flex; align-items: center; justify-content: center;
       cursor: default; user-select: none; line-height: 1;
     }
+    .warn-icon {
+      width: 15px; height: 15px; border-radius: 50%;
+      background: var(--amber-light); color: var(--amber);
+      border: 1px solid #f0d0b0;
+      font-size: 0.62rem; font-weight: 800; font-style: normal;
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: default; user-select: none; line-height: 1;
+    }
+    .pmt-warn { display: none; margin-left: 6px; }
     #infoTooltip {
       position: fixed; z-index: 9999; display: none;
       background: var(--text); color: white;
@@ -857,7 +866,10 @@ function moneyPaymentField(id, debt) {
   return `
     <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:12px">
       <div class="field">
-        <label>What I plan to pay each month</label>
+        <label style="display:flex;align-items:center;gap:6px">
+          What I plan to pay each month
+          <span class="info-tooltip pmt-warn" id="pmtWarn-${id}" onmouseenter="showInfoTooltip(this, window._pmtWarnText && window._pmtWarnText[${id}] || '')" onmouseleave="hideInfoTooltip()"><i class="warn-icon">!</i></span>
+        </label>
         <div class="input-wrap has-prefix">
           <span class="input-prefix">$</span>
           <input type="text" inputmode="decimal" placeholder="0" data-field="minPayment" data-id="${id}" autocomplete="off" value="${val}">
@@ -873,6 +885,31 @@ function calcMinPreview(debt) {
   const interest = debt.balance * rate;
   const min = Math.min(debt.balance, Math.max(25, debt.balance * 0.01 + interest, debt.balance * 0.02));
   return '~' + fmt(min) + '/mo';
+}
+
+// Show/hide the ! warning on the payment field if entry is below estimated minimum
+function checkPaymentWarn(debt) {
+  const warnEl = document.getElementById('pmtWarn-' + debt.id);
+  if (!warnEl) return;
+
+  // Only warn when we can estimate a minimum: need balance + apr
+  const canEstimate = debt.balance > 0 && debt.apr > 0;
+  // Don't warn when useMinimum is checked (it's handled automatically)
+  if (!canEstimate || debt.useMinimum || !debt.minPayment) {
+    warnEl.style.display = 'none'; return;
+  }
+
+  const rate = debt.apr / 1200;
+  const interest = debt.balance * rate;
+  const estMin = Math.min(debt.balance, Math.max(25, debt.balance * 0.01 + interest, debt.balance * 0.02));
+
+  if (debt.minPayment < estMin) {
+    if (!window._pmtWarnText) window._pmtWarnText = {};
+    window._pmtWarnText[debt.id] = `This may be below the typical minimum payment. Lenders usually require at least ${fmt(Math.ceil(estMin))}/mo.`;
+    warnEl.style.display = 'inline-flex';
+  } else {
+    warnEl.style.display = 'none';
+  }
 }
 
 // Refresh the minimum preview placeholder when balance or APR changes
@@ -917,6 +954,7 @@ function updateCardForType(id, type) {
               <input type="text" inputmode="decimal" placeholder="${placeholder}" data-field="minPayment" data-id="${id}" autocomplete="off" value="${pmtVal}"${useMin ? ' disabled style="opacity:0.5;font-style:italic"' : ''}>
             </div>
           </div>
+          ${useMin ? '' : `<span class="info-tooltip pmt-warn" id="pmtWarn-${id}" style="display:none;margin-top:4px" onmouseenter="showInfoTooltip(this, window._pmtWarnText && window._pmtWarnText[${id}] || '')" onmouseleave="hideInfoTooltip()"><i class="warn-icon">!</i></span>`}
           <label class="checkbox-label" style="margin-top:10px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.8rem;color:var(--text-muted)">
             <input type="checkbox" data-field="useMinimum" data-id="${id}" onchange="onUseMinimumChange(${id})"${useMin ? ' checked' : ''}>
             I don't know — estimate the minimum
@@ -997,6 +1035,7 @@ function onUseMinimumChange(id) {
   debt.useMinimum = !!cb?.checked;
   if (debt.useMinimum) debt.minPayment = 0;
   updateCardForType(id, 'credit_card');
+  checkPaymentWarn(debt);
   bump();
 }
 
@@ -1175,9 +1214,11 @@ document.getElementById('debtsList').addEventListener('input', e => {
     debt[field] = parseFloat(raw) || 0;
     refreshMinPreview(debt);
     if (field === 'balance') updateDebtSummary(id);
+    if (field === 'balance' || field === 'minPayment') checkPaymentWarn(debt);
   } else if (field === 'apr') {
     debt.apr = parseFloat(el.value) || 0;
     refreshMinPreview(debt);
+    checkPaymentWarn(debt);
   } else {
     debt[field] = parseFloat(el.value) || 0;
   }
