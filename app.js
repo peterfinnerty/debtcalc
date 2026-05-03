@@ -1239,7 +1239,14 @@ function decodeUrl() {
 function shareUrl() {
   trackEvent('share-click');
   encodeUrl();
-  const url = location.href;
+  // Build a /plan?p=... URL so iMessage/Slack get the custom OG preview,
+  // then plan.html redirects the browser back to the main app with the hash.
+  const hash   = location.hash.slice(1); // strip leading #
+  const params = new URLSearchParams(hash);
+  const p = params.get('p');
+  const s = params.get('s');
+  let url = location.origin + '/plan?p=' + encodeURIComponent(p || '');
+  if (s) url += '&s=' + encodeURIComponent(s);
   const btn   = document.getElementById('headerShareBtn');
   const toast = document.getElementById('shareToast');
   const copied = () => {

@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#faf7f2"/>
+      <stop offset="100%" stop-color="#f0ebe0"/>
+    </linearGradient>
+    <linearGradient id="logoGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5a8a6a"/>
+      <stop offset="100%" stop-color="#3d6b50"/>
+    </linearGradient>
+    <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c4824a" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#c4824a" stop-opacity="0.01"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGrad)"/>
+
+  <!-- Left content -->
+  <!-- Logo mark -->
+  <rect x="80" y="96" width="68" height="68" rx="17" fill="url(#logoGrad)"/>
+  <polyline points="97,143 106,133 115,147 124,136 141,150"
+            fill="none" stroke="white" stroke-width="4.5"
+            stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="141" cy="150" r="4" fill="white" opacity="0.7"/>
+
+  <!-- App name -->
+  <text x="80" y="236"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="68" font-weight="800" fill="#2d2620" letter-spacing="-2">To Zero</text>
+
+  <!-- Green accent bar -->
+  <rect x="80" y="258" width="52" height="5" rx="3" fill="#5a8a6a"/>
+
+  <!-- Tagline -->
+  <text x="80" y="322"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="33" font-weight="500" fill="#2d2620">See exactly when you'll be</text>
+  <text x="80" y="366"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="33" font-weight="500" fill="#2d2620">debt free — and how much</text>
+  <text x="80" y="410"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="33" font-weight="500" fill="#2d2620">interest you'll save.</text>
+
+  <!-- Pill badges -->
+  <rect x="80"  y="456" width="158" height="46" rx="23" fill="#e8f2eb"/>
+  <text x="159" y="485"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="18" font-weight="700" fill="#5a8a6a" text-anchor="middle">Free to use</text>
+
+  <rect x="252" y="456" width="158" height="46" rx="23" fill="#e8f2eb"/>
+  <text x="331" y="485"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="18" font-weight="700" fill="#5a8a6a" text-anchor="middle">No account</text>
+
+  <rect x="424" y="456" width="178" height="46" rx="23" fill="#e8f2eb"/>
+  <text x="513" y="485"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="18" font-weight="700" fill="#5a8a6a" text-anchor="middle">100% private</text>
+
+  <!-- URL -->
+  <text x="80" y="566"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="22" font-weight="500" fill="#7a6e65">tozero.app</text>
+
+  <!-- Right: Chart card -->
+  <rect x="672" y="55" width="464" height="520" rx="24" fill="white" opacity="0.75"/>
+  <rect x="672" y="55" width="464" height="520" rx="24" fill="none" stroke="#e8e0d0" stroke-width="1.5"/>
+
+  <!-- Chart grid lines -->
+  <line x1="710" y1="155" x2="1108" y2="155" stroke="#f0ebe0" stroke-width="1"/>
+  <line x1="710" y1="335" x2="1108" y2="335" stroke="#f0ebe0" stroke-width="1"/>
+  <line x1="710" y1="510" x2="1108" y2="510" stroke="#e8e0d0" stroke-width="1.5"/>
+
+  <!-- Y-axis labels -->
+  <text x="714" y="149"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="15" fill="#7a6e65">$50k</text>
+  <text x="714" y="329"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="15" fill="#7a6e65">$25k</text>
+  <text x="714" y="526"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="15" fill="#7a6e65">$0</text>
+
+  <!-- Area fill under curve -->
+  <path d="M756,155 C800,170 840,210 880,262 C920,314 950,368 990,418 C1020,458 1055,488 1095,510 L1095,510 L756,510 Z"
+        fill="url(#chartFill)"/>
+
+  <!-- Single payoff curve (amber) -->
+  <path d="M756,155 C800,170 840,210 880,262 C920,314 950,368 990,418 C1020,458 1055,488 1095,510"
+        fill="none" stroke="#c4824a" stroke-width="4"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Milestone dots -->
+  <circle cx="756"  cy="155" r="5.5" fill="#c4824a"/>
+  <circle cx="880"  cy="262" r="5.5" fill="#c4824a"/>
+  <circle cx="990"  cy="418" r="5.5" fill="#c4824a"/>
+  <circle cx="1095" cy="510" r="5.5" fill="#c4824a"/>
+</svg>

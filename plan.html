@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check out my debt payoff plan!</title>
+
+  <!-- Personalized OG tags for shared plan links -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Check out my debt payoff plan!">
+  <meta property="og:description" content="I mapped out my debt payoff on To Zero — see exactly when I'll be debt free and how much interest I'll save.">
+  <meta property="og:image" content="https://tozero.app/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="To Zero — Debt Payoff Calculator">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Check out my debt payoff plan!">
+  <meta name="twitter:description" content="I mapped out my debt payoff on To Zero — see exactly when I'll be debt free and how much interest I'll save.">
+  <meta name="twitter:image" content="https://tozero.app/og-image.png">
+
+  <script>
+    // Reconstruct the hash from query params and redirect to the main app
+    const params = new URLSearchParams(location.search);
+    const p = params.get('p');
+    const s = params.get('s');
+    if (p) {
+      let hash = '#p=' + p;
+      if (s) hash += '&s=' + s;
+      location.replace('/' + hash);
+    } else {
+      location.replace('/');
+    }
+  </script>
+</head>
+<body></body>
+</html>
