@@ -411,16 +411,8 @@
     .legend-dot {
       width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
     }
-    .legend-dot--dashed {
-      background: transparent;
-      border-radius: 0;
-      width: 16px; height: 2px;
-      border-top: 2px dashed rgba(150,145,138,0.65);
-      margin-top: 1px;
-    }
-    .legend-item--toggle { cursor: pointer; user-select: none; }
-    .legend-item--toggle.is-off { opacity: 0.4; text-decoration: line-through; }
     .chart-wrap { position: relative; height: 280px; }
+    .chart-btns { display: flex; gap: 8px; align-items: center; }
 
     /* Extra payment preview button */
     .extra-btn {
@@ -433,6 +425,16 @@
     }
     .extra-btn:hover { background: #d4e8d8; }
     .extra-btn.active { background: var(--green); color: #fff; border-color: var(--green); }
+    .orig-btn {
+      display: none; align-items: center; gap: 5px;
+      padding: 5px 11px; border-radius: 99px;
+      background: rgba(150,145,138,0.1); color: #7a6e65;
+      border: 1px solid rgba(150,145,138,0.25);
+      font-size: 0.76rem; font-weight: 600; cursor: pointer;
+      transition: all var(--transition); font-family: inherit;
+    }
+    .orig-btn:hover { background: rgba(150,145,138,0.18); }
+    .orig-btn.active { background: rgba(150,145,138,0.28); color: #4a4540; border-color: rgba(150,145,138,0.5); }
 
     /* Extra payment modal popover */
     .extra-modal {
@@ -747,11 +749,11 @@
               <div class="legend-item" id="sbLegendItem">
                 <div class="legend-dot" style="background:var(--snowball)"></div> Snowball
               </div>
-              <div class="legend-item legend-item--toggle" id="originalScheduleLegend" style="display:none" onclick="toggleOriginalSchedule()">
-                <div class="legend-dot legend-dot--dashed" id="originalScheduleDot"></div> Original schedule
-              </div>
             </div>
-            <button class="extra-btn" id="extraBtn">Pay extra?</button>
+            <div class="chart-btns">
+              <button class="orig-btn" id="origBtn" onclick="toggleOriginalSchedule()">Original schedule</button>
+              <button class="extra-btn" id="extraBtn">Pay extra?</button>
+            </div>
             <div class="preview-callout" id="previewCallout"></div>
           </div>
           <!-- Extra payment preview popover -->

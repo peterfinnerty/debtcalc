@@ -21,7 +21,7 @@ let previewAmount  = 50;
 let previewFreq    = 'monthly';
 let previewHistory = null;
 let baselineHistory = null;
-let showOriginalSchedule = true;
+let showOriginalSchedule = false;
 
 const FREQ = {
   daily:       { label: 'Daily',          mult: 365 / 12 },
@@ -732,14 +732,18 @@ function bump() {
 // ==========================================================
 function toggleOriginalSchedule() {
   showOriginalSchedule = !showOriginalSchedule;
-  document.getElementById('originalScheduleLegend').classList.toggle('is-off', !showOriginalSchedule);
+  document.getElementById('origBtn').classList.toggle('active', showOriginalSchedule);
   if (lastAv && lastSb) drawChart(lastAv, lastSb, lastIdentical);
 }
 
 function drawChart(av, sb, identical) {
-  // Anchor the chart window to the current payoff length — don't extend it for the baseline
-  // (baseline is clipped to fit; a line ending above zero shows it continues further)
-  const len = Math.max(av.history.length, sb.history.length, previewHistory ? previewHistory.length : 0);
+  // When original schedule is active, extend to show full baseline; otherwise anchor to current payoff
+  const len = Math.max(
+    av.history.length,
+    sb.history.length,
+    previewHistory ? previewHistory.length : 0,
+    (showOriginalSchedule && baselineHistory) ? baselineHistory.length : 0
+  );
   const fullPad = (arr) => { const a = [...arr]; while (a.length < len) a.push(0); return a; };
 
   // Thin to major intervals so dots appear only at milestones
@@ -1185,8 +1189,8 @@ function run() {
   tabsWrap.classList.toggle('strategies-same', identical);
   const strategiesSameNote = document.getElementById('strategiesSameNote');
   strategiesSameNote.style.visibility = identical ? 'visible' : 'hidden';
-  const origLegend = document.getElementById('originalScheduleLegend');
-  if (origLegend) origLegend.style.display = baselineHistory ? '' : 'none';
+  const origBtn = document.getElementById('origBtn');
+  if (origBtn) origBtn.style.display = baselineHistory ? 'flex' : 'none';
   const legend = document.getElementById('chartLegend');
   if (legend) legend.style.display = (identical && !baselineHistory) ? 'none' : '';
   document.getElementById('avLegendItem')?.style.setProperty('display', identical ? 'none' : '');
