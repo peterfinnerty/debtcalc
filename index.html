@@ -1,0 +1,1657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debt Payoff Calculator — Your Path to Zero</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #faf7f2;
+      --surface:    #ffffff;
+      --surface2:   #f5f0e8;
+      --border:     #e8e0d0;
+      --text:       #2d2620;
+      --text-muted: #7a6e65;
+      --green:      #5a8a6a;
+      --green-light:#e8f2eb;
+      --amber:      #c4824a;
+      --amber-light:#fdf0e6;
+      --blue:       #4a7a9b;
+      --blue-light: #e6f0f8;
+      --avalanche:  #c4824a;
+      --snowball:   #4a7a9b;
+      --radius:     14px;
+      --radius-sm:  8px;
+      --shadow:     0 2px 16px rgba(45,38,32,0.08);
+      --shadow-sm:  0 1px 6px rgba(45,38,32,0.06);
+      --transition: 0.25s ease;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* Header */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-mark {
+      width: 34px; height: 34px;
+      background: linear-gradient(135deg, var(--green) 0%, #3d6b50 100%);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .logo-mark svg { width: 18px; height: 18px; }
+    header h1 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; }
+    header h1 span { color: var(--text-muted); font-weight: 400; }
+    .header-share {
+      margin-left: auto;
+      padding: 8px 18px; border-radius: 99px;
+      background: var(--green); color: white; border: none;
+      font-size: 0.85rem; font-weight: 600; cursor: pointer;
+      transition: all var(--transition); display: flex; align-items: center; gap: 7px;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .header-share:hover { background: #4a7a5a; transform: translateY(-1px); box-shadow: 0 3px 10px rgba(90,138,106,0.3); }
+    .header-share.copied { background: #3d6b50; }
+    .share-toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(12px);
+      background: var(--text); color: white; font-size: 0.8rem; padding: 10px 18px;
+      border-radius: 99px; opacity: 0; transition: all 0.3s ease; pointer-events: none;
+      white-space: nowrap; z-index: 999;
+    }
+    .share-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Layout */
+    .layout {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      height: calc(100vh - 65px);
+    }
+
+    /* Left panel */
+    .left-panel {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 28px 24px 40px;
+    }
+
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    /* Debt cards */
+    .debts-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
+
+    .debt-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      transition: border-color var(--transition);
+    }
+    .debt-card:focus-within { border-color: var(--green); }
+
+    .debt-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .debt-card-name {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Debt callout (type-specific notices) */
+    .debt-callout {
+      margin-top: 10px; padding: 9px 12px;
+      border-radius: 8px; font-size: 0.76rem; line-height: 1.5;
+      display: none;
+    }
+    .debt-callout.show { display: block; }
+    .debt-callout.amber { background: var(--amber-light); border: 1px solid #f0d0b0; color: #7a4a20; }
+    .debt-callout.green { background: var(--green-light); border: 1px solid #c0dcc8; color: #3a6e4a; }
+    .debt-callout.blue  { background: var(--blue-light); border: 1px solid #c0d8ee; color: #2d5070; }
+    .debt-callout.danger { background: #fdf0ee; border: 1px solid #f5c6be; color: #8b3428; }
+    .debt-callout a { color: inherit; font-weight: 600; }
+
+    /* Plan toggle (federal loan) */
+    .plan-toggle { display: flex; border: 1px solid var(--border); border-radius: 99px; overflow: hidden; margin-bottom: 8px; }
+    .plan-btn { flex: 1; padding: 5px 0; border: none; background: none; font-size: 0.72rem; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all var(--transition); }
+    .plan-btn.active { background: var(--text); color: white; border-radius: 99px; }
+
+    /* Warnings panel */
+    .warnings-panel { display: flex; flex-direction: column; gap: 8px; }
+    .warning-item { padding: 10px 14px; border-radius: 10px; font-size: 0.8rem; line-height: 1.5; }
+    .warning-item.danger  { background: #fdf0ee; border: 1px solid #f5c6be; color: #8b3428; }
+    .warning-item.caution { background: var(--amber-light); border: 1px solid #f0d0b0; color: #7a4a20; }
+    .warning-item.info    { background: var(--blue-light); border: 1px solid #c0d8ee; color: #2d5070; }
+    .warning-item a { color: inherit; font-weight: 600; }
+
+    /* Loan calc hint */
+    .calc-hint {
+      margin-top: 6px; padding: 7px 10px;
+      background: var(--green-light); border-radius: var(--radius-sm);
+      font-size: 0.75rem; color: #3a6e4a; line-height: 1.4;
+      display: none;
+    }
+    .calc-hint.show { display: block; }
+    .btn-remove {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); padding: 2px; border-radius: 4px;
+      opacity: 0.5; transition: opacity var(--transition);
+      display: flex; align-items: center;
+    }
+    .btn-remove:hover { opacity: 1; color: #b94a3a; }
+
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+    .field-row.full { grid-template-columns: 1fr; }
+    .field-row:last-child { margin-bottom: 0; }
+
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: 0.73rem; color: var(--text-muted); font-weight: 500; }
+
+    .input-wrap { position: relative; display: flex; align-items: center; }
+    .input-prefix {
+      position: absolute; left: 10px;
+      font-size: 0.85rem; color: var(--text-muted); pointer-events: none;
+      z-index: 1;
+    }
+    .input-suffix {
+      position: absolute; right: 10px;
+      font-size: 0.85rem; color: var(--text-muted); pointer-events: none;
+    }
+
+    input[type="text"], input[type="number"], input[type="email"] {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 7px 10px;
+      font-size: 0.875rem;
+      color: var(--text);
+      background: var(--surface);
+      transition: border-color var(--transition), box-shadow var(--transition);
+      outline: none;
+      -moz-appearance: textfield;
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    input[type="text"]:focus, input[type="number"]:focus, input[type="email"]:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(90,138,106,0.15);
+    }
+    .has-prefix input { padding-left: 22px; }
+    .has-suffix input { padding-right: 28px; }
+
+    .btn-add-debt {
+      width: 100%; padding: 10px;
+      background: none; border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      color: var(--text-muted); font-size: 0.875rem;
+      cursor: pointer; transition: all var(--transition);
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-add-debt:hover {
+      border-color: var(--green); color: var(--green); background: var(--green-light);
+    }
+
+    /* Extra payments */
+    .extra-section { margin-top: 24px; }
+    .extras-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+    .extra-card {
+      background: var(--amber-light);
+      border: 1px solid #f0d0b0;
+      border-radius: var(--radius);
+      padding: 14px;
+      transition: border-color var(--transition);
+    }
+    .extra-card:focus-within { border-color: var(--amber); }
+    .extra-card-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+    }
+    .extra-card-label { font-size: 0.72rem; font-weight: 700; color: var(--amber); text-transform: uppercase; letter-spacing: 0.06em; }
+    .btn-add-extra {
+      width: 100%; padding: 10px;
+      background: none; border: 2px dashed #f0d0b0;
+      border-radius: var(--radius);
+      color: var(--amber); font-size: 0.875rem;
+      cursor: pointer; transition: all var(--transition);
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-add-extra:hover { border-color: var(--amber); background: var(--amber-light); }
+
+    /* Select inputs */
+    select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 7px 28px 7px 10px;
+      font-size: 0.875rem;
+      color: var(--text);
+      background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237a6e65' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E") no-repeat right 10px center;
+      appearance: none; -webkit-appearance: none;
+      outline: none; cursor: pointer;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(90,138,106,0.15); }
+
+    /* Extra recommendation */
+    .extra-rec {
+      margin-top: 10px; padding: 8px 11px;
+      border-radius: var(--radius-sm);
+      font-size: 0.76rem; line-height: 1.45;
+      display: none;
+    }
+    .extra-rec.show { display: block; }
+    .extra-rec.tip  { background: var(--green-light); color: #3a6e4a; }
+    .extra-rec.good { background: var(--green-light); color: #3a6e4a; }
+
+    /* Right panel */
+    .right-panel {
+      overflow-y: auto;
+      padding: 28px 28px 40px;
+      display: flex; flex-direction: column; gap: 24px;
+    }
+
+    /* Empty state */
+    .empty-state {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px; padding: 60px 24px;
+      text-align: center;
+    }
+    .empty-icon {
+      width: 64px; height: 64px; background: var(--surface2);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 1.8rem;
+    }
+    .empty-state h2 { font-size: 1.1rem; font-weight: 600; }
+    .empty-state p { font-size: 0.875rem; color: var(--text-muted); max-width: 280px; line-height: 1.55; }
+
+    /* Chart card */
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+    .chart-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: 20px; gap: 16px; flex-wrap: wrap;
+    }
+    .chart-title { font-size: 1rem; font-weight: 700; letter-spacing: -0.01em; }
+    .chart-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 3px; }
+    .chart-legend {
+      display: flex; gap: 16px; padding-top: 2px;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.78rem; color: var(--text-muted);
+    }
+    .legend-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+    .chart-wrap { position: relative; height: 280px; }
+
+    /* Strategy tabs */
+    .tabs-wrap { display: flex; gap: 0; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+    .tab-btn {
+      flex: 1; padding: 11px 16px; background: var(--surface2);
+      border: none; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+      color: var(--text-muted); transition: all var(--transition);
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+    }
+    .tab-btn:first-child { border-right: 1px solid var(--border); }
+    .tab-btn.tab-av { background: var(--amber-light); color: var(--amber); }
+    .tab-btn.tab-sb { background: var(--blue-light);  color: var(--blue); }
+
+    .badge {
+      font-size: 0.65rem; font-weight: 800; padding: 2px 7px;
+      border-radius: 99px; letter-spacing: 0.03em;
+    }
+    .badge-green { background: var(--green-light); color: var(--green); }
+    .badge-blue  { background: var(--blue-light);  color: var(--blue); }
+
+    /* Summary grid */
+    .summary-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+      margin-top: 12px;
+    }
+    .summary-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px 16px;
+      box-shadow: var(--shadow-sm);
+    }
+    .s-label { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+    .s-value { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; margin-top: 4px; line-height: 1; }
+    .s-sub { font-size: 0.73rem; color: var(--text-muted); margin-top: 4px; }
+    .c-green { color: var(--green); }
+    .c-amber { color: var(--amber); }
+
+    /* Insight strip */
+    .insight-strip {
+      margin-top: 10px; padding: 10px 14px;
+      background: var(--green-light); border-radius: var(--radius-sm);
+      font-size: 0.8rem; color: #3a6e4a; line-height: 1.45;
+    }
+
+    /* Breakdown */
+    .breakdown-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-sm);
+    }
+    .card-title { font-size: 0.875rem; font-weight: 700; margin-bottom: 14px; }
+    .breakdown-list { display: flex; flex-direction: column; gap: 8px; }
+    .breakdown-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px; background: var(--surface2);
+      border-radius: var(--radius-sm); gap: 10px;
+    }
+    .breakdown-name { font-size: 0.875rem; font-weight: 600; flex: 1; min-width: 0; }
+    .breakdown-name small { display: block; font-size: 0.71rem; color: var(--text-muted); font-weight: 400; margin-top: 1px; }
+    .breakdown-bar-wrap { width: 70px; flex-shrink: 0; }
+    .breakdown-bar { height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .breakdown-fill { height: 100%; border-radius: 99px; transition: width 0.5s ease; }
+    .breakdown-amount { font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
+
+    /* Scenarios */
+    .scenarios-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-sm);
+    }
+    .card-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; margin-bottom: 14px; }
+    .scenario-list { display: flex; flex-direction: column; gap: 8px; }
+    .scenario-row {
+      display: grid; grid-template-columns: 90px 1fr auto;
+      align-items: center; gap: 12px;
+      padding: 11px 14px; border-radius: var(--radius-sm);
+      background: var(--surface2); transition: background var(--transition);
+      cursor: default;
+    }
+    .scenario-row:hover { background: var(--green-light); }
+    .scenario-amount { font-size: 0.9rem; font-weight: 800; color: var(--green); }
+    .scenario-date { font-size: 0.82rem; line-height: 1.4; }
+    .scenario-date strong { font-weight: 700; }
+    .scenario-date small { color: var(--green); font-size: 0.74rem; }
+    .scenario-saved { font-size: 0.75rem; color: var(--text-muted); text-align: right; white-space: nowrap; }
+
+    /* Actions */
+    .actions-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .btn-share {
+      padding: 10px 20px; border-radius: 99px;
+      background: var(--green); color: white; border: none;
+      font-size: 0.875rem; font-weight: 600; cursor: pointer;
+      transition: all var(--transition); display: flex; align-items: center; gap: 8px;
+    }
+    .btn-share:hover { background: #4a7a5a; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(90,138,106,0.28); }
+    .copy-confirm {
+      font-size: 0.78rem; color: var(--green);
+      display: none; align-items: center; gap: 6px;
+    }
+    .copy-confirm.show { display: flex; }
+
+    /* Email CTA */
+    .cta-card {
+      background: linear-gradient(135deg, #f0f7f2 0%, #eaf0f8 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow-sm);
+    }
+    .cta-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 4px; }
+    .cta-sub { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px; line-height: 1.45; }
+    .cta-form { display: flex; gap: 8px; }
+    .cta-form input { flex: 1; border-radius: 99px; padding: 9px 16px; }
+    .btn-cta {
+      padding: 9px 20px; border-radius: 99px;
+      background: var(--green); color: white; border: none;
+      font-size: 0.875rem; font-weight: 600; cursor: pointer;
+      transition: background var(--transition); white-space: nowrap;
+    }
+    .btn-cta:hover { background: #4a7a5a; }
+    .cta-thanks {
+      display: none; font-size: 0.875rem; color: var(--green);
+      font-weight: 600; padding: 6px 0; text-align: center;
+    }
+    .cta-thanks.show { display: block; }
+
+    /* Responsive */
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; height: auto; min-height: 100vh; }
+      .left-panel { border-right: none; border-bottom: 1px solid var(--border); }
+      .chart-legend { display: none; }
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+      .scenario-row { grid-template-columns: 80px 1fr; }
+      .scenario-saved { display: none; }
+    }
+    @media (max-width: 500px) {
+      header { padding: 14px 16px; }
+      .left-panel, .right-panel { padding: 20px 16px 32px; }
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+      .s-value { font-size: 1.1rem; }
+      .cta-form { flex-direction: column; }
+      .btn-cta { width: 100%; text-align: center; }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in { animation: fadeUp 0.35s ease both; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">
+    <svg viewBox="0 0 18 18" fill="none">
+      <path d="M2 4 L5 8 L9 11 L13 14" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="14" cy="14" r="2.2" fill="white" opacity="0.65"/>
+    </svg>
+  </div>
+  <h1>Debt Payoff Calculator <span>— your path to zero</span></h1>
+  <button class="header-share" id="headerShareBtn" onclick="shareUrl()">
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+      <path d="M9.5 1.5L12.5 4.5L9.5 7.5M12.5 4.5H5C3.6 4.5 2.5 5.6 2.5 7v5.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Share my plan
+  </button>
+</header>
+<div class="share-toast" id="shareToast">Link copied. Send it to someone who can help keep you accountable.</div>
+
+<div class="layout">
+
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+    <div class="section-label">Your debts</div>
+    <div class="debts-list" id="debtsList"></div>
+    <button class="btn-add-debt" id="addDebtBtn">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+        <path d="M6.5 1v11M1 6.5h11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Add another debt
+    </button>
+
+    <div class="extra-section">
+      <div class="section-label" style="margin-bottom:12px">Extra payments</div>
+      <div class="extras-list" id="extrasList"></div>
+      <button class="btn-add-extra" id="addExtraBtn">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <path d="M6.5 1v11M1 6.5h11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Add extra payment
+      </button>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel" id="rightPanel">
+
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">&#128200;</div>
+      <h2>Add your first debt to get started</h2>
+      <p>Fill in a debt on the left and we'll show you exactly when you'll be free of it, and how much you'll save by paying it down strategically.</p>
+    </div>
+
+    <div id="results" style="display:none">
+
+      <!-- Warnings -->
+      <div id="warningsPanel" style="display:none;margin-bottom:24px" class="warnings-panel fade-in"></div>
+
+      <!-- Chart -->
+      <div class="chart-card fade-in" style="margin-bottom:24px">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Your path to zero</div>
+            <div class="chart-subtitle" id="chartSubtitle">Total balance over time</div>
+          </div>
+          <div class="chart-legend">
+            <div class="legend-item">
+              <div class="legend-dot" style="background:var(--avalanche)"></div> Avalanche
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot" style="background:var(--snowball)"></div> Snowball
+            </div>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="payoffChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Tabs + Summary -->
+      <div class="fade-in" style="margin-bottom:24px">
+        <div class="tabs-wrap">
+          <button class="tab-btn tab-av" id="tabAv" onclick="setTab('avalanche')">
+            Avalanche
+            <span class="badge badge-green" id="avBadge" style="display:none">Saves more</span>
+          </button>
+          <button class="tab-btn" id="tabSb" onclick="setTab('snowball')">
+            Snowball
+            <span class="badge badge-blue" id="sbBadge" style="display:none">Faster</span>
+          </button>
+        </div>
+        <div id="summaryArea"></div>
+      </div>
+
+      <!-- Breakdown -->
+      <div class="breakdown-card fade-in" style="margin-bottom:24px">
+        <div class="card-title">Monthly payment breakdown</div>
+        <div class="breakdown-list" id="breakdownList"></div>
+      </div>
+
+      <!-- Scenarios -->
+      <div class="scenarios-card fade-in" style="margin-bottom:24px">
+        <div class="card-title">What if you paid a little more?</div>
+        <div class="card-sub">See how small changes speed up your payoff date.</div>
+        <div class="scenario-list" id="scenarioList"></div>
+      </div>
+
+      <!-- Email CTA -->
+      <div class="cta-card fade-in">
+        <div class="cta-title">Want to save and track your plan over time?</div>
+        <div class="cta-sub">We'll send you a link back to this exact calculator whenever you need a check-in.</div>
+        <div class="cta-form" id="ctaForm">
+          <input type="email" id="ctaEmail" placeholder="your@email.com">
+          <button class="btn-cta" onclick="submitEmail()">Send it to me</button>
+        </div>
+        <div class="cta-thanks" id="ctaThanks">
+          You've got this. Check your inbox for the link.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ==========================================================
+//  STATE
+// ==========================================================
+let debts       = [];
+let extras      = [];
+let activeTab   = 'avalanche';
+let chart       = null;
+let debtId      = 0;
+let extraId     = 0;
+let updateTimer = null;
+let lastAv      = null;
+let lastSb      = null;
+
+const FREQ = {
+  weekly:      { label: 'Weekly',         mult: 52 / 12 },
+  monthly:     { label: 'Monthly',        mult: 1 },
+  quarterly:   { label: 'Every 3 months', mult: 1 / 3 },
+  biannually:  { label: 'Every 6 months', mult: 1 / 6 },
+  yearly:      { label: 'Yearly',         mult: 1 / 12 },
+};
+
+// ==========================================================
+//  FORMATTERS
+// ==========================================================
+const fmt = n =>
+  '$' + Math.abs(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+const fmtDec = n =>
+  '$' + Math.abs(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Format a raw string/number with commas while typing (no $ prefix, preserves decimals)
+function fmtInput(val) {
+  const s = String(val).replace(/[^\d.]/g, '');
+  const [int, ...dec] = s.split('.');
+  const formatted = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return dec.length ? formatted + '.' + dec[0] : formatted;
+}
+
+function monthsToDate(m) {
+  const d = new Date();
+  d.setMonth(d.getMonth() + Math.round(m));
+  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+function monthsLabel(m) {
+  const y = Math.floor(m / 12), mo = m % 12;
+  if (!y) return mo + ' month' + (mo !== 1 ? 's' : '');
+  if (!mo) return y + ' year' + (y !== 1 ? 's' : '');
+  return y + 'y ' + mo + 'm';
+}
+
+// ==========================================================
+//  DEBT TYPE DEFINITIONS
+// ==========================================================
+const DEBT_TYPES = [
+  { value: 'credit_card',  label: 'Credit Card' },
+  { value: 'loan',         label: 'Loan' },
+  { value: 'student_loan', label: 'Student Loan' },
+  { value: 'other',        label: 'Other' },
+];
+
+// ==========================================================
+//  DEBT CARD DOM
+// ==========================================================
+function makeCard(id) {
+  const el = document.createElement('div');
+  el.className = 'debt-card';
+  el.dataset.id = id;
+  const typeOpts = DEBT_TYPES.map(t =>
+    `<option value="${t.value}"${t.value === 'credit_card' ? ' selected' : ''}>${t.label}</option>`
+  ).join('');
+  el.innerHTML = `
+    <div class="debt-card-header">
+      <span class="debt-card-name">Debt ${debts.length + 1}</span>
+      <button class="btn-remove" onclick="removeDebt(${id})">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <path d="M1.5 1.5l10 10M11.5 1.5l-10 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="field-row full">
+      <div class="field">
+        <label>Type</label>
+        <select data-field="debtType" data-id="${id}" onchange="onTypeChange(${id})">${typeOpts}</select>
+      </div>
+    </div>
+    <div class="field-row full">
+      <div class="field">
+        <label>Name</label>
+        <input type="text" placeholder="e.g. Chase Visa" data-field="name" data-id="${id}">
+      </div>
+    </div>
+    <div class="field-row" id="balanceRow-${id}">
+      <div class="field">
+        <label>Balance owed</label>
+        <div class="input-wrap has-prefix">
+          <span class="input-prefix">$</span>
+          <input type="text" inputmode="decimal" placeholder="5,000" data-field="balance" data-id="${id}" autocomplete="off">
+        </div>
+      </div>
+      <div class="field" id="aprField-${id}">
+        <label>Interest rate</label>
+        <div class="input-wrap has-suffix">
+          <input type="number" placeholder="19.9" data-field="apr" data-id="${id}" min="0" max="100" step="0.1">
+          <span class="input-suffix">%</span>
+        </div>
+      </div>
+    </div>
+    <div id="typeFields-${id}"></div>
+    <div class="debt-callout" id="callout-${id}"></div>`;
+  return el;
+}
+
+// ==========================================================
+//  TYPE CHANGE
+// ==========================================================
+function onTypeChange(id) {
+  const debt = debts.find(d => d.id === id);
+  if (!debt) return;
+  const sel = document.querySelector(`[data-field="debtType"][data-id="${id}"]`);
+  const newType = sel?.value || 'credit_card';
+  debt.debtType = newType;
+  debt.minPayment = 0;
+  debt.useMinimum = false;
+
+  // 'other' defaults to 0% APR
+  if (newType === 'other') {
+    debt.apr = 0;
+    const aprEl = document.querySelector(`[data-field="apr"][data-id="${id}"]`);
+    if (aprEl) aprEl.value = '';
+  }
+
+  updateCardForType(id, newType);
+  bump();
+}
+
+// Shared field builders
+function moneyPaymentField(id, debt) {
+  const val = debt.minPayment ? fmtInput(debt.minPayment) : '';
+  return `
+    <div class="field-row full" style="margin-top:4px">
+      <div class="field">
+        <label>Monthly payment</label>
+        <div class="input-wrap has-prefix">
+          <span class="input-prefix">$</span>
+          <input type="text" inputmode="decimal" placeholder="0" data-field="minPayment" data-id="${id}" autocomplete="off" value="${val}">
+        </div>
+      </div>
+    </div>`;
+}
+
+function updateCardForType(id, type) {
+  const debt = debts.find(d => d.id === id);
+  if (!debt) return;
+  const typeFieldsEl = document.getElementById('typeFields-' + id);
+  const calloutEl    = document.getElementById('callout-' + id);
+  const aprFieldEl   = document.getElementById('aprField-' + id);
+  const balanceRow   = document.getElementById('balanceRow-' + id);
+  if (!typeFieldsEl || !calloutEl) return;
+
+  // Balance row always visible for all types
+  if (balanceRow) balanceRow.style.display = '';
+
+  // Reset APR field
+  const aprInput2 = aprFieldEl?.querySelector('input');
+  if (aprInput2) { aprInput2.disabled = false; aprInput2.style.opacity = ''; }
+
+  switch (type) {
+    // ── Credit Card ───────────────────────────────────────────
+    case 'credit_card': {
+      const pmtVal = debt.useMinimum ? '' : (debt.minPayment ? fmtInput(debt.minPayment) : '');
+      typeFieldsEl.innerHTML = `
+        <div class="field-row full" style="margin-top:4px">
+          <div class="field">
+            <label>Monthly payment</label>
+            <div class="input-wrap has-prefix">
+              <span class="input-prefix">$</span>
+              <input type="text" inputmode="decimal" placeholder="150" data-field="minPayment" data-id="${id}" autocomplete="off" value="${pmtVal}"${debt.useMinimum ? ' disabled style="opacity:0.4"' : ''}>
+            </div>
+          </div>
+        </div>
+        <label class="checkbox-label" style="margin-top:10px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.88rem;color:var(--text-muted)">
+          <input type="checkbox" data-field="useMinimum" data-id="${id}" onchange="onUseMinimumChange(${id})"${debt.useMinimum ? ' checked' : ''}>
+          I don't know — use the minimum
+        </label>
+        <div class="calc-hint${debt.useMinimum ? ' show' : ''}" id="minHint-${id}" style="margin-top:6px">
+          Minimum = max($25, 1% of balance + interest, 2% of balance). Recalculates monthly as balance drops.
+        </div>`;
+      calloutEl.className = 'debt-callout';
+      break;
+    }
+
+    // ── Loan (personal, auto, mortgage, BNPL, etc.) ───────────
+    case 'loan': {
+      typeFieldsEl.innerHTML = moneyPaymentField(id, debt);
+      calloutEl.className = 'debt-callout';
+      break;
+    }
+
+    // ── Student Loan ──────────────────────────────────────────
+    case 'student_loan': {
+      const lt = debt.loanType || 'federal';
+      typeFieldsEl.innerHTML = moneyPaymentField(id, debt) + `
+        <div class="plan-toggle" style="margin-top:10px">
+          <button class="plan-btn${lt==='federal'?' active':''}" onclick="setStudentLoanType(${id},'federal')">Federal</button>
+          <button class="plan-btn${lt==='private'?' active':''}" onclick="setStudentLoanType(${id},'private')">Private</button>
+        </div>`;
+      if (lt === 'federal') {
+        calloutEl.className = 'debt-callout blue show';
+        calloutEl.innerHTML = 'Federal loans have forgiveness options that may make aggressive paydown the wrong move. <a href="https://studentaid.gov" target="_blank">Check studentaid.gov</a> before overpaying.';
+      } else {
+        calloutEl.className = 'debt-callout';
+        calloutEl.innerHTML = '';
+      }
+      break;
+    }
+
+    // ── Other (medical, collections, anything else) ───────────
+    case 'other': {
+      typeFieldsEl.innerHTML = moneyPaymentField(id, debt);
+      calloutEl.className = 'debt-callout';
+      // Default APR to 0 if not set
+      if (!debt.apr) {
+        const aprEl = document.querySelector(`[data-field="apr"][data-id="${id}"]`);
+        if (aprEl) aprEl.value = '';
+      }
+      break;
+    }
+
+    default: {
+      typeFieldsEl.innerHTML = moneyPaymentField(id, debt);
+      calloutEl.className = 'debt-callout';
+    }
+  }
+  updateCardPlaceholders(id, type);
+}
+
+function updateCardPlaceholders(id, type) {
+  const nameEl = document.querySelector(`[data-field="name"][data-id="${id}"]`);
+  const balEl  = document.querySelector(`[data-field="balance"][data-id="${id}"]`);
+  const aprEl  = document.querySelector(`[data-field="apr"][data-id="${id}"]`);
+  const cfg = {
+    credit_card:  { name: 'e.g. Chase Freedom',      bal: '3,500',  apr: '22.9' },
+    loan:         { name: 'e.g. Car / Mortgage / SoFi', bal: '15,000', apr: '7.5' },
+    student_loan: { name: 'e.g. Navient / MOHELA',   bal: '25,000', apr: '5.5'  },
+    other:        { name: 'e.g. Medical bill',        bal: '2,000',  apr: '0'    },
+  }[type] || { name: 'e.g. Debt name', bal: '5,000', apr: '0' };
+  if (nameEl) nameEl.placeholder = cfg.name;
+  if (balEl)  balEl.placeholder  = cfg.bal;
+  if (aprEl)  aprEl.placeholder  = cfg.apr;
+}
+
+function onUseMinimumChange(id) {
+  const debt = debts.find(d => d.id === id);
+  if (!debt) return;
+  const cb = document.querySelector(`[data-field="useMinimum"][data-id="${id}"]`);
+  debt.useMinimum = !!cb?.checked;
+  const pmtInput = document.querySelector(`[data-field="minPayment"][data-id="${id}"]`);
+  const hint = document.getElementById('minHint-' + id);
+  if (pmtInput) {
+    pmtInput.disabled = debt.useMinimum;
+    pmtInput.style.opacity = debt.useMinimum ? '0.4' : '';
+    if (debt.useMinimum) { pmtInput.value = ''; debt.minPayment = 0; }
+  }
+  if (hint) hint.classList.toggle('show', debt.useMinimum);
+  bump();
+}
+
+function setStudentLoanType(id, lt) {
+  const debt = debts.find(d => d.id === id);
+  if (!debt) return;
+  debt.loanType = lt;
+  document.querySelectorAll(`#typeFields-${id} .plan-btn`).forEach(btn => {
+    btn.classList.toggle('active', (lt==='federal' && btn.textContent==='Federal') || (lt==='private' && btn.textContent==='Private'));
+  });
+  const callout = document.getElementById('callout-' + id);
+  if (callout) {
+    if (lt === 'federal') {
+      callout.className = 'debt-callout blue show';
+      callout.innerHTML = 'Federal loans have forgiveness options that may make aggressive paydown the wrong move. <a href="https://studentaid.gov" target="_blank">Check studentaid.gov</a> before overpaying.';
+    } else {
+      callout.className = 'debt-callout';
+      callout.innerHTML = '';
+    }
+  }
+  bump();
+}
+
+function addDebt(pre = {}) {
+  const id = ++debtId;
+  // Map legacy type values to new 4-type system
+  let dt = pre.debtType || 'credit_card';
+  if (dt === 'card') dt = 'credit_card';
+  if (['personal_loan','auto','mortgage','bnpl','tax'].includes(dt)) dt = 'loan';
+  if (dt === 'student_private' || dt === 'student_federal') dt = 'student_loan';
+  if (dt === 'medical' || dt === 'collections') dt = 'other';
+  if (!['credit_card','loan','student_loan','other'].includes(dt)) dt = 'credit_card';
+
+  debts.push({
+    id,
+    name:       pre.name || '',
+    balance:    +pre.balance || 0,
+    apr:        +pre.apr || 0,
+    minPayment: +pre.minPayment || 0,
+    debtType:   dt,
+    useMinimum: !!pre.useMinimum,
+    loanType:   pre.loanType || 'federal',
+  });
+
+  const card = makeCard(id);
+  document.getElementById('debtsList').appendChild(card);
+
+  if (pre.name) card.querySelector('[data-field="name"]').value = pre.name;
+  if (pre.balance) {
+    const balEl = card.querySelector('[data-field="balance"]');
+    if (balEl) balEl.value = fmtInput(pre.balance);
+  }
+
+  const typeSelect = card.querySelector('[data-field="debtType"]');
+  if (typeSelect) typeSelect.value = dt;
+
+  updateCardForType(id, dt);
+
+  if (pre.apr) { const a = card.querySelector('[data-field="apr"]'); if (a && !a.disabled) a.value = pre.apr; }
+  const pmtEl = card.querySelector('[data-field="minPayment"]');
+  if (pre.minPayment && pmtEl && !pmtEl.disabled) pmtEl.value = fmtInput(pre.minPayment);
+
+  renumber();
+  bump();
+}
+
+
+function removeDebt(id) {
+  debts = debts.filter(d => d.id !== id);
+  document.querySelector(`.debt-card[data-id="${id}"]`)?.remove();
+  renumber();
+  bump();
+}
+
+function renumber() {
+  document.querySelectorAll('.debt-card-name').forEach((el, i) => el.textContent = 'Debt ' + (i + 1));
+}
+
+// Money fields that need comma-formatting
+const MONEY_FIELDS = new Set(['balance', 'minPayment']);
+
+document.getElementById('debtsList').addEventListener('input', e => {
+  const el = e.target, id = +el.dataset.id, field = el.dataset.field;
+  if (!field || !id) return;
+  const debt = debts.find(d => d.id === id);
+  if (!debt) return;
+
+  if (field === 'name') {
+    debt.name = el.value;
+    refreshExtraTargets();
+  } else if (MONEY_FIELDS.has(field)) {
+    const pos = el.selectionStart;
+    const raw = el.value.replace(/,/g, '');
+    const oldLen = el.value.length;
+    el.value = fmtInput(raw);
+    const newLen = el.value.length;
+    try { el.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen)); } catch(_) {}
+    debt[field] = parseFloat(raw) || 0;
+  } else if (field === 'apr') {
+    debt.apr = parseFloat(el.value) || 0;
+  } else {
+    debt[field] = parseFloat(el.value) || 0;
+  }
+  bump();
+});
+// Extra payment cards
+function makeExtraCard(eid) {
+  const el = document.createElement('div');
+  el.className = 'extra-card';
+  el.dataset.eid = eid;
+  const targetOptions = buildTargetOptions();
+  el.innerHTML = `
+    <div class="extra-card-header">
+      <span class="extra-card-label">Extra payment</span>
+      <button class="btn-remove" onclick="removeExtra(${eid})">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <path d="M1.5 1.5l10 10M11.5 1.5l-10 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Amount</label>
+        <div class="input-wrap has-prefix">
+          <span class="input-prefix">$</span>
+          <input type="text" inputmode="decimal" placeholder="100" data-efield="amount" data-eid="${eid}" autocomplete="off">
+        </div>
+      </div>
+      <div class="field">
+        <label>Frequency</label>
+        <select data-efield="freq" data-eid="${eid}">
+          <option value="weekly">Weekly</option>
+          <option value="monthly" selected>Monthly</option>
+          <option value="quarterly">Every 3 months</option>
+          <option value="biannually">Every 6 months</option>
+          <option value="yearly">Yearly</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row full" style="margin-top:8px">
+      <div class="field">
+        <label>Apply to</label>
+        <select data-efield="targetId" data-eid="${eid}">${targetOptions}</select>
+      </div>
+    </div>
+    <div class="extra-rec" id="rec-${eid}"></div>`;
+  return el;
+}
+
+function buildTargetOptions(selectedId) {
+  const eligible = debts.filter(d => d.balance > 0);
+  const opts = [];
+  if (eligible.length > 1) opts.push(`<option value="">Whatever is optimal</option>`);
+  eligible.forEach(d => {
+    const sel = selectedId == d.id ? ' selected' : '';
+    opts.push(`<option value="${d.id}"${sel}>${d.name || 'Debt ' + d.id}</option>`);
+  });
+  return opts.join('');
+}
+
+function addExtra(pre = {}) {
+  const eid = ++extraId;
+  extras.push({ eid, amount: +pre.amount || 0, freq: pre.freq || 'monthly', targetId: pre.targetId || null });
+  const card = makeExtraCard(eid);
+  document.getElementById('extrasList').appendChild(card);
+  if (pre.amount) {
+    const inp = card.querySelector('[data-efield="amount"]');
+    inp.value = fmtInput(pre.amount);
+  }
+  if (pre.freq) card.querySelector('[data-efield="freq"]').value = pre.freq;
+  if (pre.targetId) card.querySelector('[data-efield="targetId"]').value = pre.targetId;
+  bump();
+}
+
+function removeExtra(eid) {
+  extras = extras.filter(e => e.eid !== eid);
+  document.querySelector(`.extra-card[data-eid="${eid}"]`)?.remove();
+  bump();
+}
+
+// Refresh target dropdowns whenever debts change
+function refreshExtraTargets() {
+  document.querySelectorAll('[data-efield="targetId"]').forEach(sel => {
+    const eid = +sel.dataset.eid;
+    const ex = extras.find(e => e.eid === eid);
+    const currentVal = ex?.targetId || '';
+    sel.innerHTML = buildTargetOptions(currentVal);
+    sel.value = currentVal;
+  });
+}
+
+// Monthly equivalent for an extra payment
+const monthlyEquiv = ex => ex.amount * (FREQ[ex.freq]?.mult ?? 1);
+
+// Total monthly extra split into optimal vs targeted
+function extrasBreakdown() {
+  const optimal = extras.filter(e => !e.targetId).reduce((s, e) => s + monthlyEquiv(e), 0);
+  const targeted = extras.filter(e => e.targetId).map(e => ({ id: e.targetId, amount: monthlyEquiv(e) }));
+  return { optimal, targeted };
+}
+
+// Show/hide recommendation under an extra card
+function showRecommendation(eid) {
+  const ex = extras.find(e => e.eid === eid);
+  const rec = document.getElementById('rec-' + eid);
+  if (!ex || !rec) return;
+
+  if (!ex.targetId || ex.amount <= 0) { rec.className = 'extra-rec'; return; }
+
+  const validDebts = debts.filter(d => d.balance > 0 && (d.apr > 0 || d.debtType === 'credit_card'));
+  if (validDebts.length <= 1) { rec.className = 'extra-rec'; return; }
+
+  const chosenDebt = validDebts.find(d => d.id == ex.targetId);
+  if (!chosenDebt) { rec.className = 'extra-rec'; return; }
+
+  // Find optimal target (highest APR = avalanche)
+  const optimalDebt = [...validDebts].sort((a, b) => b.apr - a.apr)[0];
+
+  if (chosenDebt.id === optimalDebt.id) {
+    rec.textContent = `Great call. ${chosenDebt.name || 'This debt'} has the highest APR so it costs you the most — targeting it first is the optimal move.`;
+    rec.className = 'extra-rec good show';
+  } else {
+    const aprDiff = (optimalDebt.apr - chosenDebt.apr).toFixed(1);
+    rec.innerHTML = `<strong>${optimalDebt.name || 'Debt with highest APR'}</strong> is charging ${optimalDebt.apr.toFixed(1)}% vs ${chosenDebt.apr.toFixed(1)}% — putting this toward that debt first would save more in interest (${aprDiff}% difference).`;
+    rec.className = 'extra-rec tip show';
+  }
+}
+
+// Event delegation for extra cards
+document.getElementById('extrasList').addEventListener('input', e => {
+  const el = e.target;
+  const eid = +el.dataset.eid;
+  const field = el.dataset.efield;
+  if (!field || !eid) return;
+  const ex = extras.find(e => e.eid === eid);
+  if (!ex) return;
+
+  if (field === 'amount') {
+    const pos = el.selectionStart;
+    const raw = el.value.replace(/,/g, '');
+    const oldLen = el.value.length;
+    el.value = fmtInput(raw);
+    const newLen = el.value.length;
+    el.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen));
+    ex.amount = parseFloat(raw) || 0;
+  } else if (field === 'freq') {
+    ex.freq = el.value;
+  } else if (field === 'targetId') {
+    ex.targetId = el.value || null;
+    showRecommendation(eid);
+  }
+  bump();
+});
+
+document.getElementById('addExtraBtn').addEventListener('click', () => addExtra());
+
+function bump() {
+  clearTimeout(updateTimer);
+  updateTimer = setTimeout(run, 100);
+}
+
+// ==========================================================
+//  SIMULATION HELPERS
+// ==========================================================
+function getMinPayment(d) {
+  if (d.debtType === 'credit_card') {
+    // useMinimum: dynamic formula recalculated every month as balance drops
+    if (d.useMinimum || d.minPayment <= 0) {
+      const monthlyInterest = d.b * d.rate;
+      return Math.min(d.b, Math.max(25, d.b * 0.01 + monthlyInterest, d.b * 0.02));
+    }
+    return Math.min(d.b, d.minPayment);
+  }
+  return Math.min(d.b, d.minPayment || 0);
+}
+
+function avSortKey(d) {
+  return d.apr || 0;
+}
+
+// ==========================================================
+//  SIMULATION
+// ==========================================================
+function simulate(source, eb, strategy) {
+  // eb = { optimal: number, targeted: [{id, amount}] }
+  let pool = source
+    .filter(d => d.balance > 0)
+    .map(d => ({ ...d, b: d.balance, rate: (d.apr || 0) / 1200 }));
+
+  if (!pool.length) return null;
+
+  const history = [pool.reduce((s, d) => s + d.b, 0)];
+  let interest = 0, mo = 0;
+
+  while (mo < 600 && pool.some(d => d.b > 0.005)) {
+    mo++;
+
+    // Accrue interest
+    for (const d of pool) {
+      if (d.b > 0) { const i = d.b * d.rate; d.b += i; interest += i; }
+    }
+
+    // Dynamic budget = sum of current minimums + optimal extra
+    const monthlyMin = pool.filter(d => d.b > 0).reduce((s, d) => s + getMinPayment(d), 0);
+    let rem = monthlyMin + Math.max(0, eb.optimal);
+
+    // Apply minimums
+    for (const d of pool) {
+      if (d.b > 0) { const p = getMinPayment(d); d.b -= p; rem -= p; }
+    }
+
+    // Targeted extras: apply to chosen debt, fall back to priority if paid off
+    for (const te of eb.targeted) {
+      let target = pool.find(d => d.id == te.id && d.b > 0.005);
+      if (!target) {
+        const alive = pool.filter(d => d.b > 0.005);
+        if (strategy === 'avalanche') alive.sort((a, b) => avSortKey(b) - avSortKey(a));
+        else alive.sort((a, b) => a.b - b.b);
+        target = alive[0];
+      }
+      if (target) { const p = Math.min(te.amount, target.b); target.b -= p; }
+    }
+
+    // Optimal extra toward strategy priority
+    const active = pool.filter(d => d.b > 0.005);
+    if (strategy === 'avalanche') active.sort((a, b) => avSortKey(b) - avSortKey(a));
+    else                          active.sort((a, b) => a.b - b.b);
+    for (const d of active) {
+      if (rem <= 0) break;
+      const p = Math.min(rem, d.b); d.b -= p; rem -= p;
+    }
+
+    for (const d of pool) d.b = Math.max(0, d.b);
+    history.push(pool.reduce((s, d) => s + d.b, 0));
+  }
+
+  return {
+    months: mo, interest,
+    totalPaid: source.reduce((s, d) => s + d.balance, 0) + interest,
+    freeDate: monthsToDate(mo), history,
+    breakdown: firstMonthBreakdown(source, eb, strategy),
+  };
+}
+
+function firstMonthBreakdown(source, eb, strategy) {
+  let pool = source
+    .filter(d => d.balance > 0)
+    .filter(d => d.debtType === 'credit_card' ? (d.useMinimum || d.minPayment > 0) : d.minPayment > 0)
+    .map(d => ({ ...d, b: d.balance, rate: (d.apr || 0) / 1200, alloc: 0 }));
+
+  const monthlyMin = pool.reduce((s, d) => s + getMinPayment(d), 0);
+  let rem = monthlyMin + Math.max(0, eb.optimal);
+
+  for (const d of pool) {
+    const p = getMinPayment(d);
+    d.alloc += p;
+    rem -= p;
+  }
+
+  // Targeted extras
+  for (const te of eb.targeted) {
+    const target = pool.find(d => d.id == te.id);
+    if (target) { const p = Math.min(te.amount, target.b - target.alloc); target.alloc += p; }
+  }
+
+  // Optimal extra
+  const active = pool.filter(d => d.b - d.alloc > 0.005);
+  if (strategy === 'avalanche') active.sort((a, b) => avSortKey(b) - avSortKey(a));
+  else                          active.sort((a, b) => a.b - b.b);
+  for (const d of active) {
+    if (rem <= 0) break;
+    const p = Math.min(rem, d.b - d.alloc); d.alloc += p; rem -= p;
+  }
+
+  return pool.map(d => {
+    const monthlyInterest = d.b * d.rate;
+    const principal = Math.max(0, d.alloc - monthlyInterest);
+    return { id: d.id, name: d.name, payment: d.alloc, balance: d.balance, apr: d.apr, monthlyInterest, principal };
+  });
+}
+
+// ==========================================================
+//  CHART
+// ==========================================================
+function drawChart(av, sb) {
+  const len = Math.max(av.history.length, sb.history.length);
+  const fullPad = (arr) => { const a = [...arr]; while (a.length < len) a.push(0); return a; };
+
+  // Thin to major intervals so dots appear only at milestones
+  const step = len <= 24 ? 3 : len <= 60 ? 6 : 12;
+  const indices = [];
+  for (let i = 0; i < len; i += step) indices.push(i);
+  if (indices[indices.length - 1] !== len - 1) indices.push(len - 1);
+
+  const labels = indices.map(i => i === 0 ? 'Now' : monthsToDate(i));
+  const thin = (arr) => { const p = fullPad(arr); return indices.map(i => p[i]); };
+
+  const data = {
+    labels,
+    datasets: [
+      {
+        label: 'Avalanche',
+        data: thin(av.history),
+        borderColor: '#c4824a',
+        backgroundColor: 'rgba(196,130,74,0.07)',
+        borderWidth: 2.5,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        pointBackgroundColor: '#c4824a',
+        pointBorderColor: '#c4824a',
+        tension: 0.42, fill: false,
+      },
+      {
+        label: 'Snowball',
+        data: thin(sb.history),
+        borderColor: '#4a7a9b',
+        backgroundColor: 'rgba(74,122,155,0.05)',
+        borderWidth: 2.5,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        pointBackgroundColor: '#4a7a9b',
+        pointBorderColor: '#4a7a9b',
+        tension: 0.42, fill: false,
+      },
+    ]
+  };
+
+  if (chart) { chart.data = data; chart.update('none'); return; }
+
+  chart = new Chart(document.getElementById('payoffChart').getContext('2d'), {
+    type: 'line', data,
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 900, easing: 'easeInOutQuart' },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#fff', borderColor: '#e8e0d0', borderWidth: 1,
+          titleColor: '#2d2620', bodyColor: '#7a6e65', padding: 10, cornerRadius: 8,
+          callbacks: { label: c => '  ' + c.dataset.label + ': ' + fmt(c.parsed.y) }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          border: { color: '#e8e0d0' },
+          offset: true,
+          ticks: { color: '#7a6e65', font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 7 }
+        },
+        y: {
+          grid: { color: 'rgba(232,224,208,0.5)', drawTicks: false },
+          border: { display: false },
+          ticks: {
+            color: '#7a6e65', font: { size: 10 }, maxTicksLimit: 5,
+            callback: v => v >= 1000 ? '$' + (v/1000).toFixed(0) + 'k' : '$' + v
+          }
+        }
+      }
+    }
+  });
+}
+
+// ==========================================================
+//  RENDER SUMMARY
+// ==========================================================
+function renderSummary() {
+  if (!lastAv || !lastSb) return;
+  const r = activeTab === 'avalanche' ? lastAv : lastSb;
+  const o = activeTab === 'avalanche' ? lastSb  : lastAv;
+  const totalDebt = debts.filter(d => d.balance > 0).reduce((s, d) => s + d.balance, 0);
+  const saved = o.interest - r.interest;
+  const faster = o.months - r.months;
+
+  let insight = '';
+  if (activeTab === 'avalanche' && saved > 0.5)
+    insight = `Compared to Snowball, this saves you <strong>${fmt(saved)}</strong> in interest.`;
+  else if (activeTab === 'snowball' && faster > 0)
+    insight = `Snowball gets you debt-free <strong>${monthsLabel(faster)} sooner</strong> than Avalanche${saved < -0.5 ? `, but costs ${fmt(Math.abs(saved))} more in interest` : ''}.`;
+  else if (activeTab === 'snowball' && Math.abs(saved) > 0.5)
+    insight = `Avalanche would save you <strong>${fmt(Math.abs(saved))}</strong> in interest if you prefer to optimize for cost.`;
+
+  // Strategy recommendation
+  const validForRec = debts.filter(d => d.balance > 0);
+  if (validForRec.length >= 2 && !insight) {
+    const byApr     = [...validForRec].sort((a, b) => (b.apr||0) - (a.apr||0));
+    const byBalance = [...validForRec].sort((a, b) => a.balance - b.balance);
+    const maxApr = byApr[0].apr || 0;
+    const minApr = byApr[byApr.length - 1].apr || 0;
+    if (byApr[0].id === byBalance[0].id) {
+      insight = 'The highest-APR debt is also the smallest balance — both methods lead to the same result.';
+    } else if (validForRec.length >= 3 && extrasBreakdown().optimal < 100) {
+      insight = 'With several debts and limited extra funds, Snowball\'s quick wins can help you stay on track.';
+    } else if (maxApr - minApr > 5) {
+      insight = `There's a ${(maxApr - minApr).toFixed(0)}% APR gap between your debts — Avalanche could save you significantly more in interest.`;
+    }
+  }
+
+  document.getElementById('summaryArea').innerHTML = `
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="s-label">Debt-free by</div>
+        <div class="s-value c-green" style="font-size:1.05rem;line-height:1.2">${r.freeDate}</div>
+        <div class="s-sub">${monthsLabel(r.months)} from now</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-label">Total interest</div>
+        <div class="s-value c-amber">${fmt(r.interest)}</div>
+        <div class="s-sub">on top of ${fmt(totalDebt)}</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-label">Total you'll pay</div>
+        <div class="s-value">${fmt(r.totalPaid)}</div>
+        <div class="s-sub">principal + interest</div>
+      </div>
+    </div>
+    ${insight ? `<div class="insight-strip">${insight}</div>` : ''}`;
+}
+
+// ==========================================================
+//  RENDER BREAKDOWN
+// ==========================================================
+function renderBreakdown() {
+  const r = activeTab === 'avalanche' ? lastAv : lastSb;
+  if (!r) return;
+  const sorted = [...r.breakdown].sort((a, b) =>
+    activeTab === 'avalanche'
+      ? avSortKey(b) - avSortKey(a)          // highest APR first
+      : a.balance - b.balance                // lowest balance first
+  );
+  const maxP = Math.max(...sorted.map(d => d.payment));
+  document.getElementById('breakdownList').innerHTML = sorted.map(d => {
+    const pct = maxP > 0 ? (d.payment / maxP) * 100 : 0;
+    const col = d.apr >= 20 ? '#b94a3a' : d.apr >= 12 ? '#c4824a' : '#5a8a6a';
+    const intStr = d.monthlyInterest > 0.01
+      ? `<span style="color:#c4824a">Interest: ${fmtDec(d.monthlyInterest)}</span> · Principal: ${fmtDec(d.principal)}`
+      : '';
+    return `
+      <div class="breakdown-row">
+        <div class="breakdown-name">
+          ${d.name || 'Unnamed debt'}
+          <small>${d.apr.toFixed(1)}% APR &middot; ${fmt(d.balance)} balance${intStr ? '<br>' + intStr : ''}</small>
+        </div>
+        <div class="breakdown-bar-wrap">
+          <div class="breakdown-bar">
+            <div class="breakdown-fill" style="width:${pct.toFixed(1)}%;background:${col}"></div>
+          </div>
+        </div>
+        <div class="breakdown-amount">${fmtDec(d.payment)}/mo</div>
+      </div>`;
+  }).join('');
+}
+
+// ==========================================================
+//  RENDER WARNINGS
+// ==========================================================
+function renderWarnings(valid) {
+  const panel = document.getElementById('warningsPanel');
+  if (!panel) return;
+  const warnings = [];
+
+  for (const d of valid) {
+    const rate = (d.apr || 0) / 1200;
+    const monthlyInterest = d.balance * rate;
+
+    // 1. Payment doesn't cover interest → balance will grow
+    const effectivePmt = (d.debtType === 'credit_card' && d.useMinimum)
+      ? Math.min(d.balance, Math.max(25, d.balance * 0.01 + monthlyInterest, d.balance * 0.02))
+      : (d.minPayment || 0);
+    if (d.apr > 0 && effectivePmt > 0 && effectivePmt <= monthlyInterest) {
+      warnings.push({ cls: 'danger', text: `<strong>${d.name || 'This debt'}</strong>: your payment doesn't cover the monthly interest — your balance will grow over time.` });
+    }
+
+    // 3. Federal student loan → forgiveness callout
+    if (d.debtType === 'student_loan' && d.loanType === 'federal') {
+      warnings.push({ cls: 'info', text: `<strong>${d.name || 'Federal student loan'}</strong>: you may qualify for income-driven repayment or Public Service Loan Forgiveness (PSLF). <a href="https://studentaid.gov/manage-loans/repayment/plans" target="_blank" rel="noopener">Learn more →</a>` });
+    }
+
+    // 4. Other debt → negotiate suggestion
+    if (d.debtType === 'other') {
+      warnings.push({ cls: 'info', text: `<strong>${d.name || 'Other debt'}</strong>: many creditors will negotiate a lower balance or interest rate — it's worth a call before paying in full.` });
+    }
+
+    // 5. Credit card using minimum → simulate and show years + interest cost
+    if (d.debtType === 'credit_card' && d.useMinimum && d.apr > 0 && d.balance > 0) {
+      let b = d.balance;
+      const r = d.apr / 1200;
+      let totalInterest = 0;
+      let months = 0;
+      while (b > 0.01 && months < 600) {
+        const interest = b * r;
+        const pmt = Math.min(b + interest, Math.max(25, b * 0.01 + interest, b * 0.02));
+        totalInterest += interest;
+        b = b + interest - pmt;
+        months++;
+      }
+      if (months >= 12) {
+        const yrs = (months / 12).toFixed(1);
+        warnings.push({ cls: 'caution', text: `<strong>${d.name || 'This card'}</strong>: paying only the minimum takes ~${yrs} years and costs <strong>${fmt(totalInterest)}</strong> in interest.` });
+      }
+    }
+  }
+
+  // 2. >10 year payoff warning
+  if (lastAv && lastAv.months > 120) {
+    const eb = extrasBreakdown();
+    const bumpSim = simulate(valid, { optimal: eb.optimal + 50, targeted: eb.targeted }, 'avalanche');
+    const yearsNow = Math.round(lastAv.months / 12);
+    const yearsBump = bumpSim ? Math.round(bumpSim.months / 12) : null;
+    warnings.push({ cls: 'caution', text: `At this pace it will take <strong>${yearsNow} years</strong> to pay off your debt.${yearsBump && yearsBump < yearsNow ? ` Adding just $50/mo cuts that to ~${yearsBump} years.` : ''}` });
+  }
+
+  // Deduplicate by text
+  const seen = new Set();
+  const unique = warnings.filter(w => { if (seen.has(w.text)) return false; seen.add(w.text); return true; });
+
+  if (!unique.length) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  panel.innerHTML = unique.map(w => `<div class="warning-item ${w.cls}">${w.text}</div>`).join('');
+}
+
+// ==========================================================
+//  RENDER SCENARIOS
+// ==========================================================
+function renderScenarios() {
+  const base = activeTab === 'avalanche' ? lastAv : lastSb;
+  if (!base) return;
+  const eb = extrasBreakdown();
+  const valid = debts.filter(d => {
+    if (!d.balance || d.balance <= 0) return false;
+    if (d.debtType === 'credit_card')  return d.useMinimum || d.minPayment > 0;
+    if (d.debtType === 'student_loan') return d.minPayment > 0;
+    return d.minPayment > 0;
+  });
+
+  document.getElementById('scenarioList').innerHTML = [50, 100, 200].map(bumpAmt => {
+    const r = simulate(valid, { optimal: eb.optimal + bumpAmt, targeted: eb.targeted }, activeTab);
+    if (!r) return '';
+    const moSaved = base.months - r.months;
+    const intSaved = base.interest - r.interest;
+    return `
+      <div class="scenario-row">
+        <div class="scenario-amount">+${fmt(bumpAmt)}/mo</div>
+        <div class="scenario-date">
+          Debt-free <strong>${r.freeDate}</strong>
+          ${moSaved > 0 ? `<br><small>${monthsLabel(moSaved)} sooner</small>` : ''}
+        </div>
+        <div class="scenario-saved">${intSaved > 1 ? 'Save ' + fmt(intSaved) : ''}</div>
+      </div>`;
+  }).join('');
+}
+
+// ==========================================================
+//  TAB TOGGLE
+// ==========================================================
+function setTab(tab) {
+  activeTab = tab;
+  document.getElementById('tabAv').className = 'tab-btn' + (tab === 'avalanche' ? ' tab-av' : '');
+  document.getElementById('tabSb').className = 'tab-btn' + (tab === 'snowball'  ? ' tab-sb' : '');
+  renderSummary();
+  renderBreakdown();
+  renderScenarios();
+}
+
+// ==========================================================
+//  MAIN RUN
+// ==========================================================
+function run() {
+  const valid = debts.filter(d => {
+    if (!d.balance || d.balance <= 0) return false;
+    if (d.debtType === 'credit_card')  return d.useMinimum || d.minPayment > 0;
+    if (d.debtType === 'student_loan') return d.minPayment > 0;
+    return d.minPayment > 0;
+  });
+  const hasData = valid.length > 0;
+  refreshExtraTargets();
+
+  document.getElementById('emptyState').style.display = hasData ? 'none' : 'flex';
+  document.getElementById('results').style.display    = hasData ? 'block' : 'none';
+
+  if (!hasData) return;
+
+  const eb = extrasBreakdown();
+  lastAv = simulate(valid, eb, 'avalanche');
+  lastSb = simulate(valid, eb, 'snowball');
+  if (!lastAv || !lastSb) return;
+
+  // Badges
+  const avSaves  = lastSb.interest - lastAv.interest;
+  const sbFaster = lastAv.months   - lastSb.months;
+  document.getElementById('avBadge').style.display = avSaves  > 0.5 ? 'inline-flex' : 'none';
+  document.getElementById('sbBadge').style.display = sbFaster > 0   ? 'inline-flex' : 'none';
+
+  // Chart subtitle
+  const total = valid.reduce((s, d) => s + d.balance, 0);
+  document.getElementById('chartSubtitle').textContent = `Starting from ${fmt(total)} total`;
+
+  drawChart(lastAv, lastSb);
+  renderSummary();
+  renderBreakdown();
+  renderScenarios();
+  renderWarnings(valid);
+  encodeUrl();
+}
+
+// ==========================================================
+//  URL ENCODING
+// ==========================================================
+function encodeUrl() {
+  try {
+    const state = {
+      v: 3,
+      d: debts.map(d => ({
+        n: d.name,
+        b: d.balance,
+        a: d.apr,
+        m: d.minPayment,
+        t: d.debtType,
+        u: d.useMinimum ? 1 : 0,
+        lt: d.loanType || '',
+      })),
+      e: extras.map(e => [e.amount, e.freq, e.targetId || '']),
+    };
+    const enc = btoa(JSON.stringify(state));
+    history.replaceState(null, '', location.pathname + '?p=' + enc);
+  } catch (_) {}
+}
+
+function decodeUrl() {
+  const p = new URLSearchParams(location.search).get('p');
+  if (!p) return false;
+  try {
+    const s = JSON.parse(atob(p));
+    if (s.v === 3) {
+      if (Array.isArray(s.d)) s.d.forEach(d => addDebt({
+        name: d.n, balance: d.b, apr: d.a, minPayment: d.m,
+        debtType: d.t, useMinimum: !!d.u, loanType: d.lt || 'federal',
+      }));
+    } else if (s.v === 2) {
+      // Legacy v2 — map old types to new, restore what we can
+      if (Array.isArray(s.d)) s.d.forEach(d => addDebt({
+        name: d.n, balance: d.b, apr: d.a, minPayment: d.m,
+        debtType: d.t, loanType: d.lt || 'federal', useMinimum: false,
+      }));
+    } else if (Array.isArray(s.d)) {
+      // Legacy v1 format (array-of-arrays)
+      s.d.forEach(d => addDebt({
+        name: d[0], balance: d[1], apr: d[2], minPayment: d[3],
+        debtType: d[4] || 'credit_card',
+      }));
+    }
+    if (Array.isArray(s.e)) s.e.forEach(e => addExtra({ amount: e[0], freq: e[1], targetId: e[2] || null }));
+    return true;
+  } catch (_) { return false; }
+}
+
+// ==========================================================
+//  SHARE
+// ==========================================================
+function shareUrl() {
+  encodeUrl();
+  const url = location.href;
+  const btn   = document.getElementById('headerShareBtn');
+  const toast = document.getElementById('shareToast');
+  const copied = () => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    toast.classList.add('show');
+    setTimeout(() => {
+      btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M9.5 1.5L12.5 4.5L9.5 7.5M12.5 4.5H5C3.6 4.5 2.5 5.6 2.5 7v5.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> Share my plan`;
+      btn.classList.remove('copied');
+      toast.classList.remove('show');
+    }, 3000);
+  };
+  if (navigator.clipboard) navigator.clipboard.writeText(url).then(copied).catch(() => fallbackCopy(url, copied));
+  else fallbackCopy(url, copied);
+}
+
+function fallbackCopy(text, cb) {
+  const el = Object.assign(document.createElement('input'), { value: text, style: 'position:fixed;opacity:0' });
+  document.body.appendChild(el); el.select();
+  try { document.execCommand('copy'); cb(); } catch (_) {}
+  document.body.removeChild(el);
+}
+
+// ==========================================================
+//  EMAIL CTA
+// ==========================================================
+function submitEmail() {
+  const v = document.getElementById('ctaEmail').value.trim();
+  if (!v || !v.includes('@')) { document.getElementById('ctaEmail').focus(); return; }
+  document.getElementById('ctaForm').style.display = 'none';
+  document.getElementById('ctaThanks').classList.add('show');
+}
+
+// ==========================================================
+//  INIT
+// ==========================================================
+document.getElementById('addDebtBtn').addEventListener('click', () => addDebt());
+if (!decodeUrl()) addDebt();
+else run();
+</script>
+</body>
+</html>
