@@ -21,6 +21,7 @@ let previewAmount  = 50;
 let previewFreq    = 'monthly';
 let previewHistory = null;
 let baselineHistory = null;
+let baselineResult  = null;
 let showOriginalSchedule = false;
 
 const FREQ = {
@@ -733,7 +734,19 @@ function bump() {
 function toggleOriginalSchedule() {
   showOriginalSchedule = !showOriginalSchedule;
   document.getElementById('origBtn').classList.toggle('active', showOriginalSchedule);
+  updateSavingsCallout();
   if (lastAv && lastSb) drawChart(lastAv, lastSb, lastIdentical);
+}
+
+function updateSavingsCallout() {
+  const el = document.getElementById('savingsCallout');
+  if (!el) return;
+  if (!showOriginalSchedule || !baselineResult || !lastAv) { el.style.display = 'none'; return; }
+  const monthsFaster = baselineResult.months - lastAv.months;
+  const interestSaved = baselineResult.interest - lastAv.interest;
+  document.getElementById('savingsMonths').textContent = monthsLabel(monthsFaster);
+  document.getElementById('savingsInterest').textContent = fmt(interestSaved);
+  el.style.display = '';
 }
 
 function drawChart(av, sb, identical) {
@@ -1177,9 +1190,8 @@ function run() {
     lastAv = simulate(valid, eb, 'avalanche');
     lastSb = simulate(valid, eb, 'snowball');
     const hasExtras = eb.optimal > 0 || eb.oneTime > 0 || eb.targeted.length > 0;
-    baselineHistory = hasExtras
-      ? simulate(valid, { optimal: 0, oneTime: 0, targeted: [] }, 'avalanche').history
-      : null;
+    baselineResult  = hasExtras ? simulate(valid, { optimal: 0, oneTime: 0, targeted: [] }, 'avalanche') : null;
+    baselineHistory = baselineResult ? baselineResult.history : null;
     lastSimKey = simKey;
   }
   if (!lastAv || !lastSb) return;
