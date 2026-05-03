@@ -266,6 +266,8 @@
 let activeTab = 'avalanche';
 let state = null; // { debts, extras }
 let backLink = null; // set at init
+const simCache      = {};   // strategy → simulate() result
+const scheduleCache = {};   // strategy → buildSchedule() result
 
 // ── Decode URL hash (mirrors app.js decodeUrl logic) ─────
 function decodeState() {
@@ -358,15 +360,17 @@ function render() {
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('content').style.display    = '';
 
-  // Detect identical strategies
-  const av = simulate(valid, eb, 'avalanche');
-  const sb = simulate(valid, eb, 'snowball');
+  // Detect identical strategies — cache both sim results and schedules (state is immutable after load)
+  if (!simCache.avalanche) simCache.avalanche = simulate(valid, eb, 'avalanche');
+  if (!simCache.snowball)  simCache.snowball  = simulate(valid, eb, 'snowball');
+  const av = simCache.avalanche, sb = simCache.snowball;
   const identical = av && sb && av.months === sb.months && Math.abs(av.interest - sb.interest) < 1;
   document.getElementById('tabsWrap').style.display          = identical ? 'none' : '';
   document.getElementById('strategiesSameNote').style.display = identical ? '' : 'none';
 
   const simResult = activeTab === 'avalanche' ? av : sb;
-  const schedule  = buildSchedule(valid, eb, activeTab);
+  if (!scheduleCache[activeTab]) scheduleCache[activeTab] = buildSchedule(valid, eb, activeTab);
+  const schedule = scheduleCache[activeTab];
 
   renderSummary(simResult, valid);
   renderOverall(schedule, simResult, identical);

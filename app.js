@@ -11,10 +11,12 @@ let chart       = null;
 let debtId      = 0;
 let extraId     = 0;
 let updateTimer = null;
+let encodeTimer = null;
 let lastAv         = null;
 let lastSb         = null;
 let lastIdentical  = false;
 let lastValid      = [];
+let lastSimKey     = '';
 let previewAmount  = 50;
 let previewFreq    = 'monthly';
 let previewHistory = null;
@@ -1128,8 +1130,17 @@ function run() {
 
   const eb = extrasBreakdown();
   lastValid = valid;
-  lastAv = simulate(valid, eb, 'avalanche');
-  lastSb = simulate(valid, eb, 'snowball');
+
+  // Only re-simulate when debt/extra inputs actually changed
+  const simKey = JSON.stringify({
+    v: valid.map(d => [d.id, d.balance, d.apr, d.minPayment, d.debtType, d.useMinimum, d.pastDue, d.pastDueAmount, d.monthsPastDue]),
+    eb,
+  });
+  if (simKey !== lastSimKey) {
+    lastAv = simulate(valid, eb, 'avalanche');
+    lastSb = simulate(valid, eb, 'snowball');
+    lastSimKey = simKey;
+  }
   if (!lastAv || !lastSb) return;
 
   // Grey out strategy tabs + hide legend when both strategies are identical
@@ -1152,7 +1163,10 @@ function run() {
   renderBreakdown();
   renderPayoffTimeline();
   renderWarnings(valid, lastAv);
-  encodeUrl();
+
+  // Debounce URL encoding — visual state doesn't need it immediately
+  clearTimeout(encodeTimer);
+  encodeTimer = setTimeout(encodeUrl, 500);
 }
 
 // ==========================================================
