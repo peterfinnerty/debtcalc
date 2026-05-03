@@ -413,6 +413,14 @@
     }
     .chart-wrap { position: relative; height: 280px; }
     .chart-btns { display: flex; gap: 8px; align-items: center; }
+    .chart-line-legend {
+      position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 16px; pointer-events: none;
+    }
+    .cll-item {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 0.75rem; color: var(--text-muted);
+    }
     .savings-callout {
       position: absolute; top: 16px; right: 12px;
       background: var(--green-light); border: 1.5px solid rgba(90,138,106,0.2);
@@ -796,6 +804,10 @@
         </div>
         <div class="chart-wrap">
           <canvas id="payoffChart"></canvas>
+          <div class="chart-line-legend" id="chartLineLegend" style="display:none">
+            <span class="cll-item"><svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="#c4824a"/></svg> Planned</span>
+            <span class="cll-item"><svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="rgba(150,145,138,0.5)"/></svg> Original schedule</span>
+          </div>
           <div class="savings-callout" id="savingsCallout" style="display:none">
             <div class="savings-hdr">Paying extra saves:</div>
             <div class="savings-row">· <span class="savings-val" id="savingsMonths"></span></div>

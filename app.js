@@ -736,6 +736,7 @@ function toggleOriginalSchedule() {
   const btn = document.getElementById('origBtn');
   btn.classList.toggle('active', showOriginalSchedule);
   btn.textContent = showOriginalSchedule ? 'Hide original' : 'Show original';
+  document.getElementById('chartLineLegend').style.display = showOriginalSchedule ? '' : 'none';
   updateSavingsCallout();
   if (lastAv && lastSb) drawChart(lastAv, lastSb, lastIdentical);
 }
