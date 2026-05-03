@@ -828,8 +828,10 @@ function drawChart(av, sb, identical) {
       backgroundColor: 'transparent',
       borderWidth: 2,
       borderDash: [],
-      pointRadius: 0,
-      pointHoverRadius: 0,
+      pointRadius: 3,
+      pointHoverRadius: 6,
+      pointBackgroundColor: 'rgba(150,145,138,0.45)',
+      pointBorderColor: 'rgba(150,145,138,0.45)',
       tension: 0.42, fill: false,
     });
   }
