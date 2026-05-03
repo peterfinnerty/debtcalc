@@ -112,6 +112,19 @@ function simulate(source, eb, strategy) {
 
   if (!pool.length) return null;
 
+  // Fixed-payment contributions are locked in before the simulation loop.
+  // When a fixed-payment debt pays off, its freed money stays in the monthly
+  // budget as surplus that gets redirected to remaining debts — this is the
+  // "snowball" effect. Without this lock, the budget collapses when a high-
+  // payment debt pays off first (the avalanche bug).
+  //
+  // Dynamic (useMinimum) CC contributions are recomputed each month because
+  // their minimum payment shrinks as the balance drops.
+  const fixedMonthlyBudget = pool.reduce((s, d) => {
+    if (d.debtType === 'credit_card' && (d.useMinimum || (d.minPayment || 0) <= 0)) return s;
+    return s + (d.minPayment || 0);
+  }, 0);
+
   const history = [pool.reduce((s, d) => s + d.b, 0)];
   let interest = 0, mo = 0;
   const payoffMonths = {};
@@ -124,12 +137,16 @@ function simulate(source, eb, strategy) {
       if (d.b > 0) { const i = d.b * d.rate; d.b += i; interest += i; }
     }
 
-    // Total budget = user-intended payments (getUserBudget) + optional extra.
-    // Floors (getFloor) are applied first; the surplus is directed by strategy.
-    // For credit cards, getFloor uses the dynamic formula so any amount the user
-    // pays above the minimum becomes surplus that the strategy can redirect.
-    const totalBudget = pool.filter(d => d.b > 0).reduce((s, d) => s + getUserBudget(d), 0)
-                        + Math.max(0, eb.optimal);
+    // Total budget = fixed commitments (persists after payoff) +
+    //               dynamic minimums for useMinimum CCs (shrinks with balance) +
+    //               optional extra payment.
+    const dynamicBudget = pool
+      .filter(d => d.b > 0 && d.debtType === 'credit_card' && (d.useMinimum || (d.minPayment || 0) <= 0))
+      .reduce((s, d) => {
+        const interest = d.b * d.rate;
+        return s + Math.min(d.b, Math.max(25, d.b * 0.01 + interest, d.b * 0.02));
+      }, 0);
+    const totalBudget = fixedMonthlyBudget + dynamicBudget + Math.max(0, eb.optimal);
     let rem = totalBudget;
 
     // Apply floors to all active debts (capped at getUserBudget to prevent negative rem)
