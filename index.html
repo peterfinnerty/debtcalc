@@ -154,6 +154,24 @@
     .priority-badge.urgent  { background: #fdf0ee; color: #8b3428; }
     .priority-badge.overdue { background: var(--amber-light); color: #7a4a20; }
 
+    /* Info icon (tooltip handled via JS fixed overlay) */
+    .info-tooltip { display: inline-flex; align-items: center; flex-shrink: 0; }
+    .info-icon {
+      width: 15px; height: 15px; border-radius: 50%;
+      background: var(--border); color: var(--text-muted);
+      font-size: 0.62rem; font-weight: 800; font-style: normal;
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: default; user-select: none; line-height: 1;
+    }
+    #infoTooltip {
+      position: fixed; z-index: 9999; display: none;
+      background: var(--text); color: white;
+      font-size: 0.72rem; line-height: 1.5; font-weight: 400;
+      padding: 9px 12px; border-radius: 8px; width: 240px;
+      pointer-events: none; white-space: normal;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    }
+
     /* Plan toggle (federal loan) */
     .plan-toggle { display: flex; border: 1px solid var(--border); border-radius: 99px; overflow: hidden; margin-bottom: 8px; }
     .plan-btn { flex: 1; padding: 5px 0; border: none; background: none; font-size: 0.72rem; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all var(--transition); }
@@ -167,14 +185,6 @@
     .warning-item.info    { background: var(--blue-light); border: 1px solid #c0d8ee; color: #2d5070; }
     .warning-item a { color: inherit; font-weight: 600; }
 
-    /* Loan calc hint */
-    .calc-hint {
-      margin-top: 6px; padding: 7px 10px;
-      background: var(--green-light); border-radius: var(--radius-sm);
-      font-size: 0.75rem; color: #3a6e4a; line-height: 1.4;
-      display: none;
-    }
-    .calc-hint.show { display: block; }
     .btn-remove {
       background: none; border: none; cursor: pointer;
       color: var(--text-muted); padding: 2px; border-radius: 4px;
@@ -783,6 +793,13 @@ function calcMinPreview(debt) {
   return '~' + fmt(min) + '/mo';
 }
 
+// Refresh the minimum preview placeholder when balance or APR changes
+function refreshMinPreview(debt) {
+  if (debt.debtType !== 'credit_card' || !debt.useMinimum) return;
+  const pmtInput = document.querySelector(`[data-field="minPayment"][data-id="${debt.id}"]`);
+  if (pmtInput) pmtInput.placeholder = calcMinPreview(debt);
+}
+
 function updateCardForType(id, type) {
   const debt = debts.find(d => d.id === id);
   if (!debt) return;
@@ -818,10 +835,8 @@ function updateCardForType(id, type) {
         <label class="checkbox-label" style="margin-top:10px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.88rem;color:var(--text-muted)">
           <input type="checkbox" data-field="useMinimum" data-id="${id}" onchange="onUseMinimumChange(${id})"${useMin ? ' checked' : ''}>
           I don't know — use the minimum
-        </label>
-        <div class="calc-hint${useMin ? ' show' : ''}" id="minHint-${id}" style="margin-top:6px">
-          Minimum = max($25, 1% of balance + interest, 2% of balance). Recalculates monthly as balance drops.
-        </div>`;
+          <span class="info-tooltip" onmouseenter="showInfoTooltip(this,'Minimum = max($25, 1% of balance + interest, 2% of balance). Recalculates each month as your balance drops.')" onmouseleave="hideInfoTooltip()"><i class="info-icon">i</i></span>
+        </label>`;
       calloutEl.className = 'debt-callout';
       break;
     }
@@ -843,7 +858,7 @@ function updateCardForType(id, type) {
         </div>`;
       if (lt === 'federal') {
         calloutEl.className = 'debt-callout blue show';
-        calloutEl.innerHTML = 'Federal loans have forgiveness options that may make aggressive paydown the wrong move. <a href="https://studentaid.gov/loan-simulator" target="_blank">Check studentaid.gov</a> to understand your options.';
+        calloutEl.innerHTML = 'Federal loans have forgiveness options that make pay down strategies complicated. <a href="https://studentaid.gov/loan-simulator" target="_blank">Check studentaid.gov</a> to understand your options.';
       } else {
         calloutEl.className = 'debt-callout';
         calloutEl.innerHTML = '';
@@ -918,7 +933,7 @@ function setStudentLoanType(id, lt) {
   if (callout) {
     if (lt === 'federal') {
       callout.className = 'debt-callout blue show';
-      callout.innerHTML = 'Federal loans have forgiveness options that may make aggressive paydown the wrong move. <a href="https://studentaid.gov/loan-simulator" target="_blank">Check studentaid.gov</a> to understand your options.';
+      callout.innerHTML = 'Federal loans have forgiveness options that make pay down strategies complicated. <a href="https://studentaid.gov/loan-simulator" target="_blank">Check studentaid.gov</a> to understand your options.';
     } else {
       callout.className = 'debt-callout';
       callout.innerHTML = '';
@@ -1021,8 +1036,10 @@ document.getElementById('debtsList').addEventListener('input', e => {
     const newLen = el.value.length;
     try { el.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen)); } catch(_) {}
     debt[field] = parseFloat(raw) || 0;
+    refreshMinPreview(debt);
   } else if (field === 'apr') {
     debt.apr = parseFloat(el.value) || 0;
+    refreshMinPreview(debt);
   } else {
     debt[field] = parseFloat(el.value) || 0;
   }
@@ -1743,11 +1760,28 @@ function submitEmail() {
 }
 
 // ==========================================================
+//  TOOLTIP
+// ==========================================================
+function showInfoTooltip(el, text) {
+  const t = document.getElementById('infoTooltip');
+  t.textContent = text;
+  t.style.display = 'block';
+  const rect = el.getBoundingClientRect();
+  const left = Math.max(8, Math.min(rect.left + rect.width / 2 - 120, window.innerWidth - 256));
+  t.style.left = left + 'px';
+  t.style.top = (rect.top - t.offsetHeight - 8) + 'px';
+}
+function hideInfoTooltip() {
+  document.getElementById('infoTooltip').style.display = 'none';
+}
+
+// ==========================================================
 //  INIT
 // ==========================================================
 document.getElementById('addDebtBtn').addEventListener('click', () => addDebt());
 if (!decodeUrl()) addDebt();
 else run();
 </script>
+<div id="infoTooltip"></div>
 </body>
 </html>
