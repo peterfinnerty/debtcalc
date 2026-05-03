@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>To Zero — Test Suite</title>
+  <script src="simulation.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #faf7f2; --surface: #fff; --border: #e8e0d0;
+      --text: #2d2620; --muted: #7a6e65;
+      --green: #5a8a6a; --red: #c0392b; --amber: #b85c2a;
+      --pass-bg: #f0f7f2; --fail-bg: #fdf0ef;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace;
+    }
+    body { background: var(--bg); color: var(--text); padding: 32px 24px 80px; }
+    h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 4px; }
+    .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 28px; }
+    #summary {
+      display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .stat {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px 20px; min-width: 120px;
+    }
+    .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .stat-value { font-size: 1.6rem; font-weight: 800; line-height: 1.1; margin-top: 2px; }
+    .stat-value.pass { color: var(--green); }
+    .stat-value.fail { color: var(--red); }
+    .category {
+      margin-bottom: 28px;
+    }
+    .category-title {
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--muted); margin-bottom: 8px; padding-left: 2px;
+    }
+    .test-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      margin-bottom: 6px; overflow: hidden;
+    }
+    .test-card.pass { border-left: 3px solid var(--green); background: var(--pass-bg); }
+    .test-card.fail { border-left: 3px solid var(--red); background: var(--fail-bg); }
+    .test-header {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    }
+    .test-id {
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em;
+      color: var(--muted); min-width: 52px;
+    }
+    .test-name { font-size: 0.875rem; font-weight: 600; flex: 1; }
+    .badge {
+      font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 99px;
+      letter-spacing: 0.03em;
+    }
+    .badge.pass { background: #d4edd9; color: #2e6b3e; }
+    .badge.fail { background: #fad7d4; color: #8b1f1a; }
+    .test-assertions { padding: 0 14px 10px 76px; }
+    .assertion { font-size: 0.8rem; color: var(--muted); margin-bottom: 2px; }
+    .assertion.fail { color: var(--red); font-weight: 600; }
+    .assertion.pass { color: #3d7a50; }
+    .run-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--green); color: white; border: none; border-radius: 8px;
+      padding: 10px 20px; font-size: 0.875rem; font-weight: 600; cursor: pointer;
+      margin-bottom: 24px;
+    }
+    .run-btn:hover { background: #4a7a5a; }
+  </style>
+</head>
+<body>
+  <h1>To Zero — Test Suite</h1>
+  <p class="subtitle">Automated tests for simulation.js · Pure JS, no DOM needed</p>
+
+  <button class="run-btn" onclick="runAll()">▶ Run All Tests</button>
+
+  <div id="summary"></div>
+  <div id="output"></div>
+
+<script>
+// ============================================================
+//  TEST RUNNER
+// ============================================================
+const testResults = [];
+
+function mkDebt(overrides) {
+  return {
+    id: 1, name: 'Test Debt', balance: 1000, apr: 12,
+    minPayment: 50, debtType: 'credit_card', useMinimum: false,
+    pastDue: false, monthsPastDue: 0, pastDueAmount: 0,
+    loanType: 'federal',
+    ...overrides,
+  };
+}
+
+const noExtras = { optimal: 0, targeted: [] };
+
+function check(id, name, assertions) {
+  const results = [];
+  try {
+    assertions(results);
+  } catch (e) {
+    results.push({ desc: 'Unexpected error: ' + e.message, pass: false, actual: e.stack, expected: 'no error' });
+  }
+  const allPass = results.every(r => r.pass);
+  testResults.push({ id, name, assertions: results, pass: allPass });
+}
+
+function assert(results, desc, actual, expected) {
+  results.push({ desc, pass: actual === expected, actual, expected });
+}
+
+function assertRange(results, desc, actual, min, max) {
+  const pass = actual >= min && actual <= max;
+  results.push({ desc, pass, actual, expected: `[${min}, ${max}]` });
+}
+
+function assertTrue(results, desc, actual) {
+  results.push({ desc, pass: !!actual, actual, expected: 'truthy' });
+}
+
+function assertFalse(results, desc, actual) {
+  results.push({ desc, pass: !actual, actual, expected: 'falsy' });
+}
+
+function assertApprox(results, desc, actual, expected, tol) {
+  const pass = Math.abs(actual - expected) <= tol;
+  results.push({ desc, pass, actual, expected: `${expected} ±${tol}` });
+}
+
+// ============================================================
+//  TEST DEFINITIONS  (all check() calls live inside runChecks())
+// ============================================================
+function runChecks() {
+
+check('CC-1', 'CC: payment below dynamic floor (floor-cap bug fix)', r => {
+  // $5000, 20% APR, $100/mo explicit — floor is $133, budget is $100
+  // Before fix: rem went negative. After fix: capped at getUserBudget.
+  const debts = [mkDebt({ balance: 5000, apr: 20, minPayment: 100, debtType: 'credit_card', useMinimum: false })];
+  const result = simulate(debts, noExtras, 'avalanche');
+  assertTrue(r, 'simulation returns a result', result);
+  assertTrue(r, 'months < 600 (no cap hit)', result.months < 600);
+  // At $100/mo on $5000 @ 20%: n ≈ 108 months
+  assertRange(r, 'payoff in ~100–115 months', result.months, 100, 115);
+  assertTrue(r, 'totalPaid > balance', result.totalPaid > 5000);
+});
+
+check('CC-2', 'CC: useMinimum=true (dynamic formula, no explicit payment)', r => {
+  // $2000, 18% APR, use estimated minimum
+  const debts = [mkDebt({ balance: 2000, apr: 18, minPayment: 0, debtType: 'credit_card', useMinimum: true })];
+  const result = simulate(debts, noExtras, 'avalanche');
+  assertTrue(r, 'simulation returns a result', result);
+  assertTrue(r, 'months < 600', result.months < 600);
+  assertRange(r, 'payoff in ~60–130 months (declining min payments)', result.months, 60, 130);
+  assertTrue(r, 'interest > 0', result.interest > 0);
+});
+
+check('CC-3', 'CC: payment above floor creates surplus directed by strategy', r => {
+  // $3000, 20% APR, $200/mo — floor ≈ $80, budget $200, surplus $120
+  // n = -ln(1 - 0.01667*3000/200) / ln(1.01667) ≈ 17.4 months
+  const debts = [mkDebt({ balance: 3000, apr: 20, minPayment: 200, debtType: 'credit_card', useMinimum: false })];
+  const result = simulate(debts, noExtras, 'avalanche');
+  assertTrue(r, 'simulation returns a result', result);
+  assertRange(r, 'payoff in ~15–21 months', result.months, 15, 21);
+  assertTrue(r, 'totalPaid = balance + interest', Math.abs(result.totalPaid - (3000 + result.interest)) < 1);
+});
+
+check('CC-4', 'CC: small balance hits $25 minimum floor', r => {
+  // $200, 24% APR, useMinimum
+  // Monthly interest: 200 * 0.02 = 4; floor = max(25, 2+4, 4) = 25
+  const debts = [mkDebt({ balance: 200, apr: 24, minPayment: 0, debtType: 'credit_card', useMinimum: true })];
+  const result = simulate(debts, noExtras, 'avalanche');
+  assertTrue(r, 'simulation returns a result', result);
+  assertRange(r, 'payoff in ~8–12 months', result.months, 8, 12);
+  // First-month breakdown payment should be $25
+  const bd = result.breakdown[0];
+  assertApprox(r, 'first month alloc is $25 (minimum floor)', bd.payment, 25, 2);
+});
+
+check('CC-5', 'CC: balance exactly equals one payment (last month)', r => {
+  // $50 balance, pay off in 1 month with $100/mo
+  const debts = [mkDebt({ balance: 50, apr: 18, minPayment: 100, debtType: 'credit_card', useMinimum: false })];
+  const result = simulate(debts, noExtras, 'avalanche');
+  assertTrue(r, 'simulation returns a result', result);
+  assert(r, 'pays off in 1 month', result.months, 1);
+  assertTrue(r, 'interest > 0 (accrues before payment)', result.interest > 0);
+});
+
+// ============================================================
+//  L — LOAN TESTS
+// ============================================================
+
+check('L-1', 'Loan: personal loan standard amortization', r => {
+  // $10000, 8% APR, $400/mo
+  // n = -ln(1 - 0.006667*10000/400) / ln(1.006667) ≈ 27.4 months
+  const debts = [mkDebt({ balance: 10000, apr: 8, minPayment: 400, debtType: 'loan', useMinimum: false })];
+  const result = simulate(debts, noExtras, 'avalanche');
+  assertTrue(r, 'simulation returns a result', result);
+  assertRange(r, 'payoff in ~25–31 months', result.months, 25, 31);
+  assertTrue(r, 'interest paid is positive', result.interest > 0);
+  assertTrue(r, 'totalPaid ≈ balance + interest', Math.abs(result.totalPaid - (10000 + result.interest)) < 1);
+});
+
+check('L-2', 'Loan: car loan longer term', r => {
+  // $15000, 6% APR, $300/mo
+  // n = -ln(1 - 0.005*15000/300) / ln(1.005) ≈ 57.7 months
+  const debts = [mkDebt({ balance: 15000, apr: 6, minPayment: 300, debtType: 'loan', useMinimum: false })];
+  const result = simulate(debts, noExtras, 'avalanche');
+  assertTrue(r, 'simulation returns a result', result);
+  assertRange(r, 'payoff in ~55–62 months', result.months, 55, 62);
+});
+
+check('L-3', 'Loan: extra payment — avalanche saves more interest, snowball pays smallest first', r => {
+  // Loan High: $10000, 12% APR, $300/mo (high APR, high balance) ← avalanche targets
+  // Loan Low:   $2000,  6% APR, $300/mo (low APR, low balance)   ← snowball targets
+  // $200 extra: avalanche → High APR; snowball → Low APR (smallest balance)
+  const debts = [
+    mkDebt({ id: 1, name: 'High APR', balance: 10000, apr: 12, minPayment: 300, debtType: 'loan' }),
+    mkDebt({ id: 2, name: 'Low APR',  balance: 2000,  apr:  6, minPayment: 300, debtType: 'loan' }),
+  ];
+  const av = simulate(debts, { optimal: 200, targeted: [] }, 'avalanche');
+  const sb = simulate(debts, { optimal: 200, targeted: [] }, 'snowball');
+  assertTrue(r, 'both simulations complete', av && sb);
+  // Avalanche saves more interest by attacking the 12% debt
+  assertTrue(r, 'avalanche interest ≤ snowball interest', av.interest <= sb.interest);
+  // Snowball directs the $200 extra to Low APR (smallest balance), paying it off first
+  const sbPayoffs = sb.debtPayoffs.sort((a,b) => a.month - b.month);
+  assert(r, 'snowball first payoff is the small-balance debt', sbPayoffs[0].name, 'Low APR');
+});
+
+check('L-4', 'Loan: extra payment reduces interest', r => {
+  const debts = [mkDebt({ balance: 10000, apr: 10, minPayment: 300, debtType: 'loan' })];
+  const base  = simulate(debts, noExtras, 'avalanche');
+  const extra = simulate(debts, { optimal: 200, targeted: [] }, 'avalanche');
+  assertTrue(r, 'extra payment simulation returns result', extra);
+  assertTrue(r, 'extra payment reduces months', extra.months < base.months);
+  assertTrue(r, 'extra payment reduces total interest', extra.interest < base.interest);
+});
+
+check('L-5', 'Loan: nearly-paid balance (< 1 payment remaining)', r => {
+  // $80 balance, $300/mo payment
+  const debts = [mkDebt({ balance: 80, apr: 8, minPayment: 300, debtType: 'loan' })];
+  const result = simulate(debts, noExtras, 'avalanche');
+  assertTrue(r, 'simulation returns a result', result);
+  assert(r, 'pays off in 1 month', result.months, 1);
+});
+
+// ============================================================
+//  SL — STUDENT LOAN TESTS
+// ============================================================
+
+check('SL-1', 'Student loan: federal basic', r => {
+  // $20000, 5% APR, $200/mo federal
+  // n = -ln(1 - 0.004167*20000/200) / ln(1.004167) ≈ 131.6 months
+  const debts = [mkDebt({ balance: 20000, apr: 5, minPayment: 200, debtType: 'student_loan', loanType: 'federal' })];
+  const result = simulate(debts, noExtras, 'avalanche');
+  assertTrue(r, 'simulation returns a result', result);
+  assertRange(r, 'payoff in ~125–140 months (~10-11 yrs)', result.months, 125, 140);
+  assertTrue(r, 'months < 600', result.months < 600);
+});
+
+check('SL-2', 'Student loan: private', r => {
+  // $10000, 8% APR, $150/mo private
+  const debts = [mkDebt({ balance: 10000, apr: 8, minPayment: 150, debtType: 'student_loan', loanType: 'private' })];
+  const result = simulate(debts, noExtras, 'avalanche');
+  assertTrue(r, 'simulation returns a result', result);
+  assertTrue(r, 'months < 600', result.months < 600);
+  assertTrue(r, 'interest paid > 0', result.interest > 0);
+});
+
+check('SL-3', 'Student loan: federal + private, avalanche pays private first (higher APR)', r => {
+  const debts = [
+    mkDebt({ id: 1, name: 'Federal', balance: 15000, apr: 5.5, minPayment: 200, debtType: 'student_loan', loanType: 'federal' }),
+    mkDebt({ id: 2, name: 'Private', balance: 8000,  apr: 9.5, minPayment: 150, debtType: 'student_loan', loanType: 'private' }),
+  ];
+  const av = simulate(debts, noExtras, 'avalanche');
+  assertTrue(r, 'simulation returns a result', av);
+  // Private has higher APR — avalanche should pay it off first
+  const payoffs = av.debtPayoffs.sort((a,b) => a.month - b.month);
+  assert(r, 'first payoff is Private (higher APR 9.5%)', payoffs[0].name, 'Private');
+});
+
+check('SL-4', 'Student loan: federal loan with APR > 10% triggers warning', r => {
+  // Federal loan with 12% APR — suspicious, should produce a warning
+  const valid = [mkDebt({ name: 'Federal Loan', balance: 15000, apr: 12, minPayment: 200, debtType: 'student_loan', loanType: 'federal' })];
+  const sim = simulate(valid, noExtras, 'avalanche');
+  const warnings = calcWarnings(valid, sim);
+  const highAprWarning = warnings.find(w => w.type === 'federal-loan-high-apr');
+  assertTrue(r, 'federal-loan-high-apr warning generated', highAprWarning);
+  // A federal loan with normal APR (5%) should NOT trigger warning
+  const valid2 = [mkDebt({ name: 'Federal Loan', balance: 15000, apr: 5, minPayment: 200, debtType: 'student_loan', loanType: 'federal' })];
+  const warnings2 = calcWarnings(valid2, simulate(valid2, noExtras, 'avalanche'));
+  assertFalse(r, 'no warning for normal federal APR (5%)', warnings2.find(w => w.type === 'federal-loan-high-apr'));
+});
+
+// ============================================================
+//  PD — PAST DUE TESTS
+// ============================================================
+
+check('PD-1', 'Past due: 1-2 months past due gets priority 1 (second)', r => {
+  const d = mkDebt({ monthsPastDue: 2 });
+  assert(r, 'pastDuePriority(1-2mo) = 1', pastDuePriority(d), 1);
+  const d2 = mkDebt({ monthsPastDue: 1 });
+  assert(r, 'pastDuePriority(1mo) = 1', pastDuePriority(d2), 1);
+  const d0 = mkDebt({ monthsPastDue: 0 });
+  assert(r, 'pastDuePriority(current) = 2', pastDuePriority(d0), 2);
+});
+
+check('PD-2', 'Past due: 3+ months gets priority 0 (highest)', r => {
+  const d3 = mkDebt({ monthsPastDue: 3 });
+  assert(r, 'pastDuePriority(3mo) = 0', pastDuePriority(d3), 0);
+  const d6 = mkDebt({ monthsPastDue: 6 });
+  assert(r, 'pastDuePriority(6mo) = 0', pastDuePriority(d6), 0);
+  const d12 = mkDebt({ monthsPastDue: 12 });
+  assert(r, 'pastDuePriority(12mo) = 0', pastDuePriority(d12), 0);
+});
+
+check('PD-3', 'Past due: strategySort puts past-due debts first', r => {
+  const debts = [
+    { id: 1, name: 'Current',    b: 5000, balance: 5000, apr: 20, monthsPastDue: 0 },
+    { id: 2, name: '3mo Late',   b: 2000, balance: 2000, apr:  8, monthsPastDue: 3 },
+    { id: 3, name: '1mo Late',   b: 3000, balance: 3000, apr: 15, monthsPastDue: 1 },
+  ];
+  strategySort(debts, 'avalanche');
+  assert(r, 'first = 3mo Late (priority 0)', debts[0].name, '3mo Late');
+  assert(r, 'second = 1mo Late (priority 1)', debts[1].name, '1mo Late');
+  assert(r, 'third = Current (priority 2)', debts[2].name, 'Current');
+});
+
+check('PD-4', 'Past due: pastDueAmount added to effective balance in simulation', r => {
+  // Balance $1000, past due $500 — effective balance should be $1500
+  const debts = [mkDebt({ balance: 1000, apr: 12, minPayment: 200, debtType: 'loan', pastDue: true, pastDueAmount: 500 })];
+  const result = simulate(debts, noExtras, 'avalanche');
+  assertTrue(r, 'simulation returns a result', result);
+  // Initial history entry should be 1500 (balance + pastDueAmount)
+  assertApprox(r, 'starting balance in history is $1500', result.history[0], 1500, 1);
+  // totalPaid should be based on 1500 principal
+  assertTrue(r, 'totalPaid > 1500', result.totalPaid > 1500);
+});
+
+check('PD-5', 'Past due: two 3mo-past-due debts sorted by strategy within same priority', r => {
+  // Both 3+ months past due — within priority 0, avalanche picks higher APR
+  const debts = [
+    { id: 1, name: 'A', b: 2000, balance: 2000, apr: 10, monthsPastDue: 4 },
+    { id: 2, name: 'B', b: 2000, balance: 2000, apr: 20, monthsPastDue: 5 },
+  ];
+  const arr = [...debts];
+  strategySort(arr, 'avalanche');
+  assert(r, 'avalanche picks B first (higher APR, same priority)', arr[0].name, 'B');
+  const arr2 = [...debts];
+  strategySort(arr2, 'snowball');
+  // Same balance → tiebreak keeps original order or stable; both past due priority 0
+  assertTrue(r, 'snowball: both still priority 0', pastDuePriority(arr2[0]) === 0);
+});
+
+// ============================================================
+//  AVS — AVALANCHE vs SNOWBALL TESTS
+// ============================================================
+
+check('AVS-1', 'AVS: single debt — both strategies identical', r => {
+  const debts = [mkDebt({ balance: 5000, apr: 15, minPayment: 200, debtType: 'loan' })];
+  const av = simulate(debts, noExtras, 'avalanche');
+  const sb = simulate(debts, noExtras, 'snowball');
+  assert(r, 'same month count', av.months, sb.months);
+  assertApprox(r, 'same total interest', av.interest, sb.interest, 0.01);
+});
+
+check('AVS-2', 'AVS: two equal-APR debts — both strategies identical', r => {
+  const debts = [
+    mkDebt({ id: 1, name: 'A', balance: 3000, apr: 12, minPayment: 150, debtType: 'loan' }),
+    mkDebt({ id: 2, name: 'B', balance: 5000, apr: 12, minPayment: 200, debtType: 'loan' }),
+  ];
+  const av = simulate(debts, noExtras, 'avalanche');
+  const sb = simulate(debts, noExtras, 'snowball');
+  // Equal APR → avalanche tiebreaks by smallest balance (same as snowball)
+  assert(r, 'same total months', av.months, sb.months);
+  assertApprox(r, 'same total interest', av.interest, sb.interest, 0.01);
+});
+
+check('AVS-3', 'AVS: high-APR large balance vs low-APR small balance — strategies diverge', r => {
+  // Debt A: $8000, 24% APR, CC, $300/mo  ← high APR, high balance
+  // Debt B: $1000, 12% APR, CC, $100/mo  ← low APR, low balance
+  // Avalanche: surplus → A (high APR)  → less total interest
+  // Snowball:  surplus → B (low balance) → more total interest
+  const debts = [
+    mkDebt({ id: 1, name: 'High APR', balance: 8000, apr: 24, minPayment: 300, debtType: 'credit_card' }),
+    mkDebt({ id: 2, name: 'Low APR',  balance: 1000, apr: 12, minPayment: 100, debtType: 'credit_card' }),
+  ];
+  const av = simulate(debts, noExtras, 'avalanche');
+  const sb = simulate(debts, noExtras, 'snowball');
+  assertTrue(r, 'both strategies complete within 600 months', av.months < 600 && sb.months < 600);
+  assertTrue(r, 'avalanche saves equal or more interest than snowball', av.interest <= sb.interest);
+  // Snowball should pay off 'Low APR' (small balance) first
+  const sbPayoffs = sb.debtPayoffs.sort((a,b) => a.month - b.month);
+  assert(r, 'snowball first payoff is the small-balance debt', sbPayoffs[0].name, 'Low APR');
+  // Avalanche should pay off 'High APR' first or at same time
+  const avPayoffs = av.debtPayoffs.sort((a,b) => a.month - b.month);
+  assert(r, 'avalanche first payoff is the high-APR debt', avPayoffs[0].name, 'High APR');
+});
+
+check('AVS-4', 'AVS: avalanche saves more interest on multiple debts', r => {
+  // Three debts at different APRs — avalanche should minimize interest
+  const debts = [
+    mkDebt({ id: 1, name: 'A', balance: 4000, apr: 22, minPayment: 150, debtType: 'credit_card' }),
+    mkDebt({ id: 2, name: 'B', balance: 6000, apr: 14, minPayment: 200, debtType: 'loan' }),
+    mkDebt({ id: 3, name: 'C', balance: 2000, apr:  8, minPayment: 100, debtType: 'loan' }),
+  ];
+  const av = simulate(debts, noExtras, 'avalanche');
+  const sb = simulate(debts, noExtras, 'snowball');
+  assertTrue(r, 'avalanche interest ≤ snowball interest', av.interest <= sb.interest);
+  assertTrue(r, 'total months within reason', av.months < 600 && sb.months < 600);
+});
+
+// ============================================================
+//  EP — EXTRA PAYMENT TESTS
+// ============================================================
+
+check('EP-1', 'Extra: optimal extra reduces payoff months', r => {
+  const debts = [mkDebt({ balance: 10000, apr: 10, minPayment: 200, debtType: 'loan' })];
+  const base  = simulate(debts, noExtras, 'avalanche');
+  const extra = simulate(debts, { optimal: 300, targeted: [] }, 'avalanche');
+  assertTrue(r, 'extra simulation returns result', extra);
+  assertTrue(r, 'extra reduces months', extra.months < base.months);
+  assertTrue(r, 'extra reduces total interest', extra.interest < base.interest);
+  assertRange(r, 'base: >60 months (slow payoff)', base.months, 61, 600);
+  assertRange(r, 'extra: <35 months (faster payoff)', extra.months, 1, 34);
+});
+
+check('EP-2', 'Extra: targeted extra goes to chosen debt', r => {
+  const debts = [
+    mkDebt({ id: 1, name: 'Target', balance: 3000, apr: 15, minPayment: 100, debtType: 'loan' }),
+    mkDebt({ id: 2, name: 'Other',  balance: 3000, apr: 15, minPayment: 100, debtType: 'loan' }),
+  ];
+  const base    = simulate(debts, noExtras, 'avalanche');
+  const targeted = simulate(debts, { optimal: 0, targeted: [{ id: 1, amount: 200 }] }, 'avalanche');
+  assertTrue(r, 'targeted simulation returns result', targeted);
+  // Target debt should pay off earlier than Other
+  const targetPayoff = targeted.debtPayoffs.find(d => d.id == 1);
+  const otherPayoff  = targeted.debtPayoffs.find(d => d.id == 2);
+  assertTrue(r, 'target pays off before other', targetPayoff.month < otherPayoff.month);
+  assertTrue(r, 'targeted reduces total interest vs base', targeted.interest < base.interest);
+});
+
+check('EP-3', 'Extra: extra exceeds remaining balance (no negative balance)', r => {
+  // $100 balance with $10000 extra — should pay off in 1 month, no crash
+  const debts = [mkDebt({ balance: 100, apr: 10, minPayment: 50, debtType: 'loan' })];
+  const result = simulate(debts, { optimal: 10000, targeted: [] }, 'avalanche');
+  assertTrue(r, 'simulation returns a result', result);
+  assert(r, 'pays off in 1 month', result.months, 1);
+  assertTrue(r, 'no negative balance in history', result.history.every(b => b >= 0));
+});
+
+check('EP-4', 'Extra: weekly extra payment (converted to monthly mult)', r => {
+  // Extras with freq are pre-converted to monthly amounts by extrasBreakdown in app,
+  // so here we test that a monthly extra amount works correctly at various sizes
+  const debts = [mkDebt({ balance: 5000, apr: 12, minPayment: 150, debtType: 'loan' })];
+  const e0    = simulate(debts, { optimal: 0,   targeted: [] }, 'avalanche');
+  const e50   = simulate(debts, { optimal: 50,  targeted: [] }, 'avalanche');
+  const e200  = simulate(debts, { optimal: 200, targeted: [] }, 'avalanche');
+  assertTrue(r, 'more extra = fewer months (50 < base)', e50.months < e0.months);
+  assertTrue(r, 'more extra = fewer months (200 < 50)',  e200.months < e50.months);
+  assertTrue(r, 'more extra = less interest (200 < 50)', e200.interest < e50.interest);
+});
+
+// ============================================================
+//  E — EDGE CASE TESTS
+// ============================================================
+
+check('E-1', 'Edge: empty debt array returns null', r => {
+  const result = simulate([], noExtras, 'avalanche');
+  assert(r, 'simulate([]) returns null', result, null);
+});
+
+check('E-2', 'Edge: zero-balance debt excluded from simulation', r => {
+  const debts = [
+    mkDebt({ id: 1, name: 'Zero',   balance: 0,    apr: 20, minPayment: 50,  debtType: 'loan' }),
+    mkDebt({ id: 2, name: 'Active', balance: 1000, apr: 10, minPayment: 100, debtType: 'loan' }),
+  ];
+  const result = simulate(debts, noExtras, 'avalanche');
+  assertTrue(r, 'simulation returns a result (active debt present)', result);
+  // History starts at 1000 (zero-balance debt excluded)
+  assertApprox(r, 'starting history is $1000 (zero-balance excluded)', result.history[0], 1000, 1);
+});
+
+check('E-3', 'Edge: zero APR loan — no interest accrues', r => {
+  const debts = [mkDebt({ balance: 1200, apr: 0, minPayment: 100, debtType: 'loan' })];
+  const result = simulate(debts, noExtras, 'avalanche');
+  assertTrue(r, 'simulation returns a result', result);
+  assertApprox(r, 'zero interest paid', result.interest, 0, 0.01);
+  assertRange(r, 'payoff in ~12 months', result.months, 11, 13);
+});
+
+check('E-4', 'Edge: warning when payment ≤ monthly interest (no-payoff scenario)', r => {
+  // $100,000 at 24% APR, paying $100/mo — monthly interest = $2000 → never pays off
+  // Monthly interest = 100000 * 0.02 = 2000 > payment of 100
+  const valid = [mkDebt({ name: 'Predatory', balance: 100000, apr: 24, minPayment: 100, debtType: 'loan' })];
+  const sim = simulate(valid, noExtras, 'avalanche');
+  const warnings = calcWarnings(valid, sim);
+  const interestWarn = warnings.find(w => w.type === 'interest-exceeds-payment');
+  assertTrue(r, 'interest-exceeds-payment warning generated', interestWarn);
+  assert(r, 'warning names the debt', interestWarn.label, 'Predatory');
+  assertTrue(r, 'minNeeded > payment', interestWarn.minNeeded > 100);
+});
+
+check('E-5', 'Edge: simulation cap warning at 600 months', r => {
+  // Slow payoff: $50000, 18% APR, $750/mo — monthly interest = 750, right at edge
+  // monthly interest = 50000 * 0.015 = 750, payment = 750 → never pays off
+  const valid = [mkDebt({ name: 'Stuck', balance: 50000, apr: 18, minPayment: 750, debtType: 'loan' })];
+  const sim = simulate(valid, noExtras, 'avalanche');
+  const warnings = calcWarnings(valid, sim);
+  // Either interest-exceeds-payment OR no-payoff warning should fire
+  const hasWarning = warnings.some(w => w.type === 'interest-exceeds-payment' || w.type === 'no-payoff');
+  assertTrue(r, 'a warning fires when payment barely covers interest', hasWarning);
+});
+
+check('E-6', 'Edge: equal-APR tiebreak picks smallest balance (avalanche)', r => {
+  // Two debts with identical APR — avalanche should tiebreak by smallest balance
+  const arr = [
+    { id: 1, name: 'Large', b: 5000, balance: 5000, apr: 15, monthsPastDue: 0 },
+    { id: 2, name: 'Small', b: 1000, balance: 1000, apr: 15, monthsPastDue: 0 },
+  ];
+  strategySort(arr, 'avalanche');
+  assert(r, 'tiebreak: avalanche picks smallest balance first', arr[0].name, 'Small');
+});
+
+check('E-7', 'Edge: single very large balance pays off correctly', r => {
+  // $100000, 7% APR, $1200/mo — standard mortgage-like loan
+  // n = -ln(1 - 0.005833*100000/1200)/ln(1.005833) ≈ 125 months
+  const debts = [mkDebt({ balance: 100000, apr: 7, minPayment: 1200, debtType: 'loan' })];
+  const result = simulate(debts, noExtras, 'avalanche');
+  assertTrue(r, 'simulation returns a result', result);
+  assertTrue(r, 'months < 600', result.months < 600);
+  assertRange(r, 'payoff in ~115–135 months', result.months, 115, 135);
+  assertTrue(r, 'totalPaid = balance + interest', Math.abs(result.totalPaid - (100000 + result.interest)) < 1);
+});
+
+check('E-8', 'Edge: firstMonthBreakdown allocation sums to totalBudget', r => {
+  const debts = [
+    mkDebt({ id: 1, name: 'A', balance: 3000, apr: 20, minPayment: 150, debtType: 'credit_card' }),
+    mkDebt({ id: 2, name: 'B', balance: 5000, apr: 12, minPayment: 200, debtType: 'loan' }),
+  ];
+  const sim = simulate(debts, noExtras, 'avalanche');
+  const bd = sim.breakdown;
+  const totalAlloc = bd.reduce((s, d) => s + d.payment, 0);
+  const totalBudget = debts.reduce((s, d) => s + d.minPayment, 0);  // 150 + 200 = 350
+  assertApprox(r, 'total breakdown allocation equals budget ($350)', totalAlloc, totalBudget, 1);
+});
+
+} // end runChecks()
+
+// ============================================================
+//  RENDER RESULTS
+// ============================================================
+function runAll() {
+  testResults.length = 0;
+  runChecks();
+
+  const categories = [
+    { prefix: 'CC',  label: 'CC — Credit Card' },
+    { prefix: 'L',   label: 'L — Loans' },
+    { prefix: 'SL',  label: 'SL — Student Loans' },
+    { prefix: 'PD',  label: 'PD — Past Due' },
+    { prefix: 'AVS', label: 'AVS — Avalanche vs Snowball' },
+    { prefix: 'EP',  label: 'EP — Extra Payments' },
+    { prefix: 'E',   label: 'E — Edge Cases' },
+  ];
+
+  const passed = testResults.filter(t => t.pass).length;
+  const total  = testResults.length;
+  const failed = total - passed;
+
+  // Summary
+  document.getElementById('summary').innerHTML = `
+    <div class="stat">
+      <div class="stat-label">Total</div>
+      <div class="stat-value">${total}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Passed</div>
+      <div class="stat-value pass">${passed}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Failed</div>
+      <div class="stat-value fail">${failed}</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Pass Rate</div>
+      <div class="stat-value ${failed === 0 ? 'pass' : 'fail'}">${total > 0 ? Math.round(passed/total*100) : 0}%</div>
+    </div>`;
+
+  // Tests grouped by category
+  const out = [];
+  for (const cat of categories) {
+    const catTests = testResults.filter(t => t.id.startsWith(cat.prefix + '-'));
+    if (!catTests.length) continue;
+    const catPass = catTests.filter(t => t.pass).length;
+    out.push(`<div class="category">
+      <div class="category-title">${cat.label} &nbsp;·&nbsp; ${catPass}/${catTests.length}</div>`);
+    for (const t of catTests) {
+      const cls = t.pass ? 'pass' : 'fail';
+      const badge = `<span class="badge ${cls}">${t.pass ? 'PASS' : 'FAIL'}</span>`;
+      const assertionHtml = t.assertions.map(a => {
+        const acls = a.pass ? 'pass' : 'fail';
+        const icon = a.pass ? '✓' : '✗';
+        const detail = a.pass ? '' : ` — got <code>${JSON.stringify(a.actual)}</code>, expected <code>${JSON.stringify(a.expected)}</code>`;
+        return `<div class="assertion ${acls}">${icon} ${a.desc}${detail}</div>`;
+      }).join('');
+      out.push(`<div class="test-card ${cls}">
+        <div class="test-header">
+          <span class="test-id">${t.id}</span>
+          <span class="test-name">${t.name}</span>
+          ${badge}
+        </div>
+        <div class="test-assertions">${assertionHtml}</div>
+      </div>`);
+    }
+    out.push('</div>');
+  }
+  document.getElementById('output').innerHTML = out.join('');
+}
+
+// Auto-run on load
+window.addEventListener('DOMContentLoaded', runAll);
+</script>
+</body>
+</html>
