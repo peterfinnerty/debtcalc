@@ -23,6 +23,9 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <!-- Tally popup embed -->
   <script async src="https://tally.so/widgets/embed.js"></script>
+
+  <!-- GoatCounter analytics — replace YOUR_SITE with your goatcounter.com site code -->
+  <script data-goatcounter="https://YOUR_SITE.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -168,6 +171,10 @@
     .debt-card.collapsed .debt-chevron { transform: rotate(180deg); }
     .debt-card-header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
     .debt-card-body { margin-top: 12px; }
+    .debt-hint {
+      font-size: 0.72rem; color: var(--text-muted); margin-top: 12px;
+      opacity: 0.5; display: none; text-align: center;
+    }
 
     /* Debt callout (type-specific notices) */
     .debt-callout {
@@ -815,6 +822,7 @@ function makeCard(id) {
         </div>
       </div>
       <div id="bottomFields-${id}"></div>
+      <div class="debt-hint" id="debtHint-${id}">Fill in all fields to see your results</div>
     </div>`;
   return el;
 }
@@ -1729,6 +1737,21 @@ function run() {
   document.getElementById('emptyState').style.display = hasData ? 'none' : 'flex';
   document.getElementById('results').style.display    = hasData ? 'block' : 'none';
 
+  // Track first time results appear in this session
+  if (hasData && !window._trackedDebtEntered) {
+    window._trackedDebtEntered = true;
+    trackEvent('debt-entered');
+  }
+
+  // Show hint on cards that are incomplete (have a balance but missing other fields)
+  debts.forEach(d => {
+    const hintEl = document.getElementById('debtHint-' + d.id);
+    if (!hintEl) return;
+    const isValid = valid.includes(d);
+    const isPartial = d.balance > 0 && !isValid;
+    hintEl.style.display = isPartial ? 'block' : 'none';
+  });
+
   if (!hasData) return;
 
   const eb = extrasBreakdown();
@@ -1809,6 +1832,7 @@ function decodeUrl() {
 //  SHARE
 // ==========================================================
 function shareUrl() {
+  trackEvent('share-click');
   encodeUrl();
   const url = location.href;
   const btn   = document.getElementById('headerShareBtn');
@@ -1835,6 +1859,32 @@ function fallbackCopy(text, cb) {
 }
 
 // Email signup handled by Tally popup (data-tally-open="J98LA7")
+
+// ==========================================================
+//  ANALYTICS (GoatCounter)
+// ==========================================================
+function trackEvent(name) {
+  if (window.goatcounter && window.goatcounter.count) {
+    window.goatcounter.count({ path: name, title: name, event: true });
+  }
+}
+
+function initAnalytics() {
+  // Shared plan visit — URL contains a shared plan hash
+  if (location.hash.startsWith('#p=')) {
+    trackEvent('shared-plan-view');
+  }
+
+  // Return visitor — use localStorage to distinguish first vs. repeat visits
+  if (localStorage.getItem('tz_visited')) {
+    trackEvent('return-visit');
+  } else {
+    localStorage.setItem('tz_visited', '1');
+  }
+}
+
+// Wait for GoatCounter to load before firing events
+window.addEventListener('load', initAnalytics);
 
 // ==========================================================
 //  TOOLTIP
