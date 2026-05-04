@@ -607,6 +607,56 @@
       width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
     }
     .chart-wrap { position: relative; height: 280px; }
+    .chart-tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 11px;
+      box-shadow: 0 6px 18px -8px rgba(0,0,0,0.18);
+      font-size: 12px;
+      min-width: 170px;
+      transform: translate(-50%, calc(-100% - 12px));
+      transition: opacity 120ms ease, left 80ms ease, top 80ms ease;
+      z-index: 5;
+    }
+    .chart-tooltip::after {
+      content: "";
+      position: absolute;
+      bottom: -5px; left: 50%;
+      width: 8px; height: 8px;
+      transform: translateX(-50%) rotate(45deg);
+      background: #fff;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .chart-tooltip .ct-date {
+      font-size: 10px; font-weight: 600;
+      color: var(--text); text-transform: uppercase;
+      letter-spacing: 0.06em; margin-bottom: 6px;
+    }
+    .chart-tooltip .ct-row {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 14px; font-variant-numeric: tabular-nums;
+    }
+    .chart-tooltip .ct-row + .ct-row { margin-top: 3px; }
+    .chart-tooltip .ct-lbl {
+      font-size: 11px; color: var(--text-muted);
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .chart-tooltip .ct-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      display: inline-block; flex-shrink: 0;
+    }
+    .chart-tooltip .ct-val { font-size: 12px; font-weight: 600; color: var(--text); }
+    .chart-tooltip .ct-delta {
+      margin-top: 7px; padding-top: 6px;
+      border-top: 1px solid var(--border);
+      font-size: 11px; font-weight: 600;
+      color: var(--green);
+    }
+    .chart-tooltip .ct-delta.behind { color: var(--burgundy); }
     .chart-btns { display: flex; gap: 8px; align-items: center; }
     .chart-line-legend {
       display: flex; gap: 20px; justify-content: center;
@@ -1064,6 +1114,7 @@
         </div>
         <div class="chart-wrap">
           <canvas id="payoffChart"></canvas>
+          <div class="chart-tooltip" id="chartTooltip" style="opacity:0"></div>
           <div class="savings-callout" id="savingsCallout" style="display:none">
             <div class="savings-hdr">Paying extra saves:</div>
             <div class="savings-row">· <span class="savings-val" id="savingsMonths"></span></div>
@@ -1125,7 +1176,7 @@
   </div>
 </div>
 
-<script src="app.js?v=21"></script>
+<script src="app.js?v=22"></script>
 <div id="infoTooltip"></div>
 </body>
 </html>

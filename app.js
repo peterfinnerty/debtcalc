@@ -671,6 +671,93 @@ const postZeroSegment = {
   borderColor: ctx => (ctx.p0.parsed.y <= 0 && ctx.p1.parsed.y <= 0) ? 'transparent' : undefined,
 };
 
+// Custom HTML tooltip — shows date, planned balance, original (when shown), and delta
+function externalTooltipHandler(context) {
+  const { chart, tooltip } = context;
+  const el = document.getElementById('chartTooltip');
+  if (!el) return;
+
+  if (tooltip.opacity === 0) { el.style.opacity = '0'; return; }
+
+  const dps = tooltip.dataPoints || [];
+  if (!dps.length) { el.style.opacity = '0'; return; }
+
+  // Identify series
+  const planned  = dps.find(d => d.dataset.label !== 'Original schedule' && d.dataset.label !== 'With extra');
+  const original = dps.find(d => d.dataset.label === 'Original schedule');
+  const preview  = dps.find(d => d.dataset.label === 'With extra');
+
+  // Hide near the right edge where balances reach $0 — reads like noise
+  const allZeroish =
+    (!planned || planned.parsed.y < 1) &&
+    (!original || original.parsed.y < 1) &&
+    (!preview  || preview.parsed.y  < 1);
+  if (allZeroish) { el.style.opacity = '0'; return; }
+
+  const dateLabel = (planned || original || preview).label;
+  const rows = [];
+
+  if (planned) {
+    const c = planned.dataset.borderColor;
+    rows.push(`<div class="ct-row"><span class="ct-lbl"><span class="ct-dot" style="background:${c}"></span>Planned</span><span class="ct-val">${fmt(planned.parsed.y)}</span></div>`);
+  }
+  if (preview) {
+    rows.push(`<div class="ct-row"><span class="ct-lbl"><span class="ct-dot" style="background:#5a8a6a"></span>With extra</span><span class="ct-val">${fmt(preview.parsed.y)}</span></div>`);
+  }
+  if (original) {
+    rows.push(`<div class="ct-row"><span class="ct-lbl"><span class="ct-dot" style="background:#969188"></span>Original</span><span class="ct-val">${fmt(original.parsed.y)}</span></div>`);
+  }
+
+  let deltaHtml = '';
+  if (planned && original) {
+    const delta = original.parsed.y - planned.parsed.y;
+    if (Math.abs(delta) >= 1) {
+      const ahead = delta > 0;
+      const arrow = ahead ? '↓' : '↑';
+      const verb = ahead ? 'ahead of schedule' : 'behind schedule';
+      const cls = ahead ? '' : ' behind';
+      deltaHtml = `<div class="ct-delta${cls}">${arrow} ${fmt(Math.abs(delta))} ${verb}</div>`;
+    }
+  }
+
+  el.innerHTML = `<div class="ct-date">${dateLabel}</div>${rows.join('')}${deltaHtml}`;
+
+  const canvas = chart.canvas;
+  let left = canvas.offsetLeft + tooltip.caretX;
+  let top  = canvas.offsetTop + tooltip.caretY;
+
+  // Keep tooltip inside chart-wrap horizontally
+  const wrapWidth = canvas.parentElement.clientWidth;
+  const halfWidth = el.offsetWidth / 2;
+  if (left - halfWidth < 4) left = halfWidth + 4;
+  if (left + halfWidth > wrapWidth - 4) left = wrapWidth - halfWidth - 4;
+
+  el.style.left = left + 'px';
+  el.style.top  = top  + 'px';
+  el.style.opacity = '1';
+}
+
+// Vertical dashed guide line at the hovered x-position
+const verticalGuidePlugin = {
+  id: 'verticalGuide',
+  afterDatasetsDraw(chart) {
+    const tt = chart.tooltip;
+    if (!tt || tt.opacity === 0 || !tt.dataPoints || !tt.dataPoints.length) return;
+    const ctx = chart.ctx;
+    const x = tt.caretX;
+    const { top, bottom } = chart.scales.y;
+    ctx.save();
+    ctx.strokeStyle = '#c9c0ad';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, bottom);
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+
 function drawChart(av, sb, identical) {
   // When original schedule is active, extend to show full baseline; otherwise anchor to current payoff
   const len = Math.max(
@@ -750,22 +837,17 @@ function drawChart(av, sb, identical) {
     });
   }
 
-  // Show label in tooltip when multiple series are visible
-  const tooltipLabel = (identical && !previewHistory)
-    ? c => '  ' + fmt(c.parsed.y)
-    : c => '  ' + c.dataset.label + ': ' + fmt(c.parsed.y);
-
   const data = { labels, datasets };
 
   if (chart) {
     chart.data = data;
-    chart.options.plugins.tooltip.callbacks.label = tooltipLabel;
     chart.update('none');
     return;
   }
 
   chart = new Chart(document.getElementById('payoffChart').getContext('2d'), {
     type: 'line', data,
+    plugins: [verticalGuidePlugin],
     options: {
       responsive: true, maintainAspectRatio: false,
       animation: document.documentElement.classList.contains('has-data')
@@ -775,10 +857,9 @@ function drawChart(av, sb, identical) {
       plugins: {
         legend: { display: false },
         tooltip: {
+          enabled: false,
           position: 'nearest',
-          backgroundColor: '#fff', borderColor: '#e8e0d0', borderWidth: 1,
-          titleColor: '#2d2620', bodyColor: '#7a6e65', padding: 10, cornerRadius: 8,
-          callbacks: { label: tooltipLabel }
+          external: externalTooltipHandler,
         }
       },
       scales: {
