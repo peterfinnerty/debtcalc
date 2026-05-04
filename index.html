@@ -9,6 +9,9 @@
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
+  <!-- Pre-paint check: mark <html> with .has-data when loading a saved plan -->
+  <script src="precheck.js"></script>
+
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://tozero.app">
@@ -529,6 +532,15 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .empty-state, #results { transition: opacity 200ms linear !important; transform: none !important; filter: none !important; }
+    }
+
+    /* Loading with a saved plan in the URL: skip the intro animation entirely */
+    html.has-data .empty-state { display: none; }
+    html.has-data #results {
+      height: auto; overflow: visible;
+      opacity: 1; transform: none;
+      pointer-events: auto;
+      transition: none;
     }
 
     /* Recovery notice — third stage overlay, shown when plan disappears */
@@ -1111,7 +1123,7 @@
   </div>
 </div>
 
-<script src="app.js?v=18"></script>
+<script src="app.js?v=19"></script>
 <div id="infoTooltip"></div>
 </body>
 </html>

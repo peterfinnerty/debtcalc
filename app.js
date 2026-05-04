@@ -1513,6 +1513,10 @@ updateShareBtn();
 if (!decodeUrl()) { isFirstRun = false; addDebt(); }
 else run();
 
+// Initial reveal is complete (or we never had data) — release the no-flash class
+// so subsequent state changes (clearing debts, etc.) animate normally.
+document.documentElement.classList.remove('has-data');
+
 // Inline onclick handlers in HTML are blocked by the Vercel CSP (script-src 'self').
 // Wire up navigation + the chart's "Show original" toggle here so they work in production.
 (function wireNavHandlers() {
