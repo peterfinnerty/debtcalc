@@ -55,35 +55,29 @@ function monthsLabel(m) {
 // ==========================================================
 //  SIMULATION HELPERS
 // ==========================================================
-function getMinPayment(d) {
-  if (d.debtType === 'credit_card') {
-    // useMinimum: dynamic formula recalculated every month as balance drops
-    if (d.useMinimum || d.minPayment <= 0) {
-      const monthlyInterest = d.b * d.rate;
-      return Math.min(d.b, Math.max(25, d.b * 0.01 + monthlyInterest, d.b * 0.02));
-    }
-    return Math.min(d.b, d.minPayment);
-  }
-  return Math.min(d.b, d.minPayment || 0);
-}
 
-// The absolute floor for a debt in simulation — always uses dynamic formula for
-// credit cards so any user payment above the minimum becomes strategy-directable surplus.
+// The absolute floor for a debt in simulation:
+//   Credit card: max($25, 1% of balance + interest, 2% of balance)
+//   Loan/other:  interest-only (balance × APR/1200), minimum $25
+// Called with live pool objects (d.b = live balance, d.rate = apr/1200).
 function getFloor(d) {
+  const monthlyInterest = d.b * d.rate;
   if (d.debtType === 'credit_card') {
-    const monthlyInterest = d.b * d.rate;
     return Math.min(d.b, Math.max(25, d.b * 0.01 + monthlyInterest, d.b * 0.02));
   }
-  return Math.min(d.b, d.minPayment || 0);
+  // Loans/student loans/other: interest-only floor, minimum $25
+  return Math.min(d.b, Math.max(25, monthlyInterest));
 }
 
-// The user's intended monthly allocation for this debt (forms the total budget)
-function getUserBudget(d) {
-  if (d.debtType === 'credit_card' && (d.useMinimum || d.minPayment <= 0)) {
-    const monthlyInterest = d.b * d.rate;
-    return Math.min(d.b, Math.max(25, d.b * 0.01 + monthlyInterest, d.b * 0.02));
+// Same floor logic but accepts a source debt object (d.balance, d.apr) for warnings/display.
+function getFloorFromSource(d) {
+  const bal = d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0);
+  const rate = (d.apr || 0) / 1200;
+  const monthlyInterest = bal * rate;
+  if (d.debtType === 'credit_card') {
+    return Math.min(bal, Math.max(25, bal * 0.01 + monthlyInterest, bal * 0.02));
   }
-  return Math.min(d.b, d.minPayment || 0);
+  return Math.min(bal, Math.max(25, monthlyInterest));
 }
 
 function avSortKey(d) {
@@ -116,27 +110,16 @@ function strategySort(arr, strategy) {
 // ==========================================================
 //  SIMULATION
 // ==========================================================
-function simulate(source, eb, strategy) {
-  // eb = { optimal: number, oneTime: number, targeted: [{id, amount}] }
+// monthlyBudget: the user's total recurring monthly allocation across all debts.
+// eb: { optimal, oneTime, targeted[] } — extra payments on top of the budget.
+function simulate(source, eb, strategy, monthlyBudget) {
+  monthlyBudget = monthlyBudget || 0;
   const effBal = d => d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0);
   let pool = source
     .filter(d => d.balance > 0)
     .map(d => ({ ...d, b: effBal(d), rate: (d.apr || 0) / 1200 }));
 
   if (!pool.length) return null;
-
-  // Fixed-payment contributions are locked in before the simulation loop.
-  // When a fixed-payment debt pays off, its freed money stays in the monthly
-  // budget as surplus that gets redirected to remaining debts — this is the
-  // "snowball" effect. Without this lock, the budget collapses when a high-
-  // payment debt pays off first (the avalanche bug).
-  //
-  // Dynamic (useMinimum) CC contributions are recomputed each month because
-  // their minimum payment shrinks as the balance drops.
-  const fixedMonthlyBudget = pool.reduce((s, d) => {
-    if (d.debtType === 'credit_card' && (d.useMinimum || (d.minPayment || 0) <= 0)) return s;
-    return s + (d.minPayment || 0);
-  }, 0);
 
   const history = [pool.reduce((s, d) => s + d.b, 0)];
   let interest = 0, mo = 0;
@@ -150,29 +133,20 @@ function simulate(source, eb, strategy) {
       if (d.b > 0) { const i = d.b * d.rate; d.b += i; interest += i; }
     }
 
-    // Total budget = fixed commitments (persists after payoff) +
-    //               dynamic minimums for useMinimum CCs (shrinks with balance) +
-    //               optional extra payment.
-    const dynamicBudget = pool
-      .filter(d => d.b > 0 && d.debtType === 'credit_card' && (d.useMinimum || (d.minPayment || 0) <= 0))
-      .reduce((s, d) => {
-        const interest = d.b * d.rate;
-        return s + Math.min(d.b, Math.max(25, d.b * 0.01 + interest, d.b * 0.02));
-      }, 0);
-    const totalBudget = fixedMonthlyBudget + dynamicBudget + Math.max(0, eb.optimal)
+    // Total available this month: fixed budget + optional extra + one-time (month 1 only)
+    let rem = monthlyBudget + Math.max(0, eb.optimal)
       + (mo === 1 ? Math.max(0, eb.oneTime || 0) : 0);
-    let rem = totalBudget;
 
-    // Apply floors to all active debts (capped at getUserBudget to prevent negative rem)
+    // Pay floor on every active debt (capped at remaining budget to prevent overdraft)
     for (const d of pool) {
-      if (d.b > 0) {
-        const p = Math.min(getFloor(d), getUserBudget(d), d.b);
+      if (d.b > 0 && rem > 0.005) {
+        const p = Math.min(getFloor(d), d.b, rem);
         d.b -= p;
         rem -= p;
       }
     }
 
-    // Targeted extras: apply to chosen debt, fall back to priority if paid off
+    // Targeted extras: apply to chosen debt, fall back to strategy priority if paid off
     for (const te of eb.targeted) {
       let target = pool.find(d => d.id == te.id && d.b > 0.005);
       if (!target) {
@@ -183,7 +157,7 @@ function simulate(source, eb, strategy) {
       if (target) { const p = Math.min(te.amount, target.b); target.b -= p; }
     }
 
-    // Optimal extra toward strategy priority
+    // Surplus after floors → strategy priority
     const active = pool.filter(d => d.b > 0.005);
     strategySort(active, strategy);
     for (const d of active) {
@@ -202,27 +176,27 @@ function simulate(source, eb, strategy) {
     months: mo, interest,
     totalPaid: source.reduce((s, d) => s + effBal(d), 0) + interest,
     freeDate: monthsToDate(mo), history,
-    breakdown: firstMonthBreakdown(source, eb, strategy),
+    breakdown: firstMonthBreakdown(source, eb, strategy, monthlyBudget),
     debtPayoffs: pool.map(d => ({ id: d.id, name: d.name, month: payoffMonths[d.id] ?? mo })),
   };
 }
 
-function firstMonthBreakdown(source, eb, strategy) {
+function firstMonthBreakdown(source, eb, strategy, monthlyBudget) {
+  monthlyBudget = monthlyBudget || 0;
   const effBal = d => d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0);
   let pool = source
     .filter(d => d.balance > 0)
-    .filter(d => d.debtType === 'credit_card' ? (d.useMinimum || d.minPayment > 0) : d.minPayment > 0)
     .map(d => ({ ...d, b: effBal(d), rate: (d.apr || 0) / 1200, alloc: 0 }));
 
-  const totalBudget = pool.reduce((s, d) => s + getUserBudget(d), 0) + Math.max(0, eb.optimal)
-    + Math.max(0, eb.oneTime || 0);
-  let rem = totalBudget;
+  let rem = monthlyBudget + Math.max(0, eb.optimal) + Math.max(0, eb.oneTime || 0);
 
-  // Apply floors (capped at getUserBudget to prevent negative rem)
+  // Apply floors (capped at remaining budget)
   for (const d of pool) {
-    const p = Math.min(getFloor(d), getUserBudget(d), d.b);
-    d.alloc += p;
-    rem -= p;
+    if (rem > 0.005) {
+      const p = Math.min(getFloor(d), d.b, rem);
+      d.alloc += p;
+      rem -= p;
+    }
   }
 
   // Targeted extras
@@ -231,7 +205,7 @@ function firstMonthBreakdown(source, eb, strategy) {
     if (target) { const p = Math.min(te.amount, target.b - target.alloc); target.alloc += p; }
   }
 
-  // Optimal extra
+  // Surplus → strategy priority
   const active = pool.filter(d => d.b - d.alloc > 0.005);
   strategySort(active, strategy);
   for (const d of active) {
@@ -242,7 +216,12 @@ function firstMonthBreakdown(source, eb, strategy) {
   return pool.map(d => {
     const monthlyInterest = d.b * d.rate;
     const principal = Math.max(0, d.alloc - monthlyInterest);
-    return { id: d.id, name: d.name, payment: d.alloc, balance: d.b, apr: d.apr, monthlyInterest, principal, monthsPastDue: d.monthsPastDue || 0 };
+    return {
+      id: d.id, name: d.name, payment: d.alloc, balance: d.b, apr: d.apr,
+      monthlyInterest, principal,
+      monthsPastDue: d.monthsPastDue || 0,
+      pastDueAmount: d.pastDue ? (d.pastDueAmount || 0) : 0,
+    };
   });
 }
 
@@ -251,18 +230,14 @@ function firstMonthBreakdown(source, eb, strategy) {
 // ==========================================================
 // Returns full month-by-month data for the amortization page.
 // Mirrors simulate() logic exactly — just tracks more per-debt detail.
-function buildSchedule(source, eb, strategy) {
+function buildSchedule(source, eb, strategy, monthlyBudget) {
+  monthlyBudget = monthlyBudget || 0;
   const effBal = d => d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0);
   let pool = source
     .filter(d => d.balance > 0)
     .map(d => ({ ...d, b: effBal(d), rate: (d.apr || 0) / 1200 }));
 
   if (!pool.length) return { rows: [], debts: [] };
-
-  const fixedMonthlyBudget = pool.reduce((s, d) => {
-    if (d.debtType === 'credit_card' && (d.useMinimum || (d.minPayment || 0) <= 0)) return s;
-    return s + (d.minPayment || 0);
-  }, 0);
 
   const debtMeta = pool.map(d => ({ id: d.id, name: d.name, apr: d.apr, initialBalance: effBal(d) }));
   const rows = [];
@@ -272,7 +247,7 @@ function buildSchedule(source, eb, strategy) {
   while (mo < 600 && pool.some(d => d.b > 0.005)) {
     mo++;
 
-    // Accrue interest (captured before adding, matching simulate())
+    // Accrue interest
     const monthlyInterestMap = {};
     for (const d of pool) {
       if (d.b > 0) {
@@ -285,14 +260,7 @@ function buildSchedule(source, eb, strategy) {
       }
     }
 
-    // Budget — mirrors simulate() exactly
-    const dynamicBudget = pool
-      .filter(d => d.b > 0 && d.debtType === 'credit_card' && (d.useMinimum || (d.minPayment || 0) <= 0))
-      .reduce((s, d) => {
-        const interest = d.b * d.rate;
-        return s + Math.min(d.b, Math.max(25, d.b * 0.01 + interest, d.b * 0.02));
-      }, 0);
-    let rem = fixedMonthlyBudget + dynamicBudget + Math.max(0, eb.optimal)
+    let rem = monthlyBudget + Math.max(0, eb.optimal)
       + (mo === 1 ? Math.max(0, eb.oneTime || 0) : 0);
 
     const paid = {};
@@ -300,8 +268,8 @@ function buildSchedule(source, eb, strategy) {
 
     // Floors
     for (const d of pool) {
-      if (d.b > 0) {
-        const p = Math.min(getFloor(d), getUserBudget(d), d.b);
+      if (d.b > 0 && rem > 0.005) {
+        const p = Math.min(getFloor(d), d.b, rem);
         d.b -= p; rem -= p; paid[d.id] += p;
       }
     }
@@ -317,7 +285,7 @@ function buildSchedule(source, eb, strategy) {
       if (target) { const p = Math.min(te.amount, target.b); target.b -= p; paid[target.id] += p; }
     }
 
-    // Optimal extra
+    // Surplus → strategy priority
     const active = pool.filter(d => d.b > 0.005);
     strategySort(active, strategy);
     for (const d of active) {
@@ -353,30 +321,26 @@ function buildSchedule(source, eb, strategy) {
 //  PURE WARNINGS (no DOM)
 // Returns an array of warning objects instead of rendering HTML.
 // ==========================================================
-function calcWarnings(valid, sim, eb) {
+function calcWarnings(valid, sim, monthlyBudget) {
   const warnings = [];
-  const totalOptional = (eb && eb.optimal) ? eb.optimal : 0;
-  const targeted      = (eb && eb.targeted) ? eb.targeted : [];
 
-  // Rule 1 — payment does not cover monthly interest (after extras)
-  for (const d of valid) {
-    const rate = (d.apr || 0) / 1200;
-    const monthlyInterest = d.balance * rate;
-    const basePmt = (d.debtType === 'credit_card' && d.useMinimum)
-      ? Math.min(d.balance, Math.max(25, d.balance * 0.01 + monthlyInterest, d.balance * 0.02))
-      : (d.minPayment || 0);
-    const targetedExtra = targeted.filter(t => t.id == d.id).reduce((s, t) => s + t.amount, 0);
-    // Optimal extras flow to the highest-APR debt first; credit all of it as available
-    const effectivePmt = basePmt + targetedExtra + totalOptional;
-    if (d.apr > 0 && basePmt > 0 && effectivePmt <= monthlyInterest) {
-      const minNeeded = Math.ceil(monthlyInterest + 1);
-      const label = d.name || `Debt ${valid.indexOf(d) + 1}`;
-      warnings.push({ type: 'interest-exceeds-payment', label, minNeeded });
+  // Rule 1 — monthly budget below the minimum needed to cover all debt floors
+  if (monthlyBudget > 0) {
+    const floorSum = valid.reduce((s, d) => s + getFloorFromSource(d), 0);
+    // For 1-2 months past due, add the catch-up amount on top of floor
+    const pastDueCatchUp = valid
+      .filter(d => d.pastDue && (d.monthsPastDue || 0) >= 1 && (d.monthsPastDue || 0) < 3)
+      .reduce((s, d) => s + (d.pastDueAmount || 0), 0);
+    const minNeeded = floorSum + pastDueCatchUp;
+    if (monthlyBudget < minNeeded) {
+      const hasPastDue = valid.some(d => d.pastDue && (d.monthsPastDue || 0) >= 1);
+      warnings.push({ type: 'budget-too-low', minNeeded: Math.ceil(minNeeded), hasPastDue });
     }
   }
 
-  // Rule 2 — simulation hit 600-month cap
-  if (sim && sim.months >= 600) {
+  // Rule 2 — simulation hit 600-month cap (skip if budget-too-low already explains it)
+  const budgetTooLow = warnings.some(w => w.type === 'budget-too-low');
+  if (!budgetTooLow && sim && sim.months >= 600) {
     warnings.push({ type: 'no-payoff' });
   }
 

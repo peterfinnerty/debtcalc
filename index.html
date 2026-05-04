@@ -204,13 +204,14 @@
     .past-due-toggle-label input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; }
 
     /* Priority badge in breakdown */
-    .priority-badge, .extra-badge {
+    .priority-badge, .extra-badge, .min-badge {
       display: inline-block; font-size: 0.64rem; font-weight: 700;
       padding: 1px 6px; border-radius: 99px; margin-left: 5px; vertical-align: middle;
     }
     .priority-badge.urgent  { background: #fdf0ee; color: #8b3428; }
     .priority-badge.overdue { background: var(--amber-light); color: #7a4a20; }
     .extra-badge { background: var(--green-light); color: var(--green); border: 1px solid rgba(90,138,106,0.2); }
+    .min-badge { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
 
     /* Info icon (tooltip handled via JS fixed overlay) */
     .info-tooltip { display: inline-flex; align-items: center; flex-shrink: 0; }
@@ -220,6 +221,7 @@
       font-size: 0.62rem; font-weight: 800; font-style: normal;
       display: inline-flex; align-items: center; justify-content: center;
       cursor: default; user-select: none; line-height: 1;
+      text-transform: none; letter-spacing: 0;
     }
     .warn-icon {
       width: 15px; height: 15px; border-radius: 50%;
@@ -312,7 +314,6 @@
     }
 
     /* Extra payments */
-    .extra-section { margin-top: 24px; }
     .extras-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
     .extra-card {
       background: var(--green-light);
@@ -430,6 +431,19 @@
     .savings-hdr { font-size: 0.82rem; font-weight: 600; color: var(--green); margin-bottom: 3px; }
     .savings-row { display: flex; align-items: baseline; gap: 4px; line-height: 1.4; font-size: 0.82rem; color: var(--green); opacity: 0.85; }
     .savings-val { font-size: 0.82rem; font-weight: 400; color: var(--green); }
+
+    /* Monthly budget card */
+    .budget-card {
+      background: var(--green-light);
+      border: 1px solid #c0dcc8;
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 12px;
+      transition: border-color var(--transition);
+    }
+    .budget-card:focus-within { border-color: var(--green); }
+    .budget-card input { border-color: #c0dcc8; background: white; }
+    .budget-card input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(90,138,106,0.15); }
 
     /* Extra payment preview button */
     .extra-btn {
@@ -716,7 +730,27 @@
 
   <!-- LEFT PANEL -->
   <div class="left-panel">
-    <div class="section-label">Your debts</div>
+
+    <!-- Budget section -->
+    <div class="section-label">Your payments</div>
+    <div class="budget-card">
+      <div class="extra-card-header">
+        <span class="extra-card-label">Monthly Commitment <span class="info-tooltip" data-tip="The amount you can commit to paying each month after all your basic needs are met."><i class="info-icon">i</i></span></span>
+      </div>
+      <div class="input-wrap has-prefix">
+        <span class="input-prefix">$</span>
+        <input type="text" id="monthlyBudgetInput" inputmode="decimal" placeholder="300" autocomplete="off">
+      </div>
+    </div>
+    <div class="extras-list" id="extrasList"></div>
+    <button class="btn-add-extra" id="addExtraBtn">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+        <path d="M6.5 1v11M1 6.5h11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Add an extra payment
+    </button>
+
+    <div class="section-label" style="margin-top:24px">Your debts</div>
     <div class="debts-list" id="debtsList"></div>
     <button class="btn-add-debt" id="addDebtBtn">
       <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
@@ -724,17 +758,6 @@
       </svg>
       Add a debt
     </button>
-
-    <div class="extra-section">
-      <div class="section-label" style="margin-bottom:12px">Extra payments</div>
-      <div class="extras-list" id="extrasList"></div>
-      <button class="btn-add-extra" id="addExtraBtn">
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-          <path d="M6.5 1v11M1 6.5h11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        Add extra payment
-      </button>
-    </div>
   </div>
 
   <!-- RIGHT PANEL -->
@@ -742,8 +765,8 @@
 
     <div class="empty-state" id="emptyState">
       <div class="empty-icon">&#128176;</div>
-      <h2>Add your first debt to get started</h2>
-      <p>Add your first debt and we'll show you exactly when you'll be free of it. Your data never leaves your browser.</p>
+      <h2 id="emptyHeading">Add your first debt to get started</h2>
+      <p id="emptyText">Add your debts and monthly budget, and we'll show you exactly when you'll be free of it. Your data never leaves your browser.</p>
     </div>
 
     <div id="results" style="display:none">

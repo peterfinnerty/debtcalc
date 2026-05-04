@@ -4,25 +4,27 @@
 // ==========================================================
 //  STATE
 // ==========================================================
-let debts       = [];
-let extras      = [];
-let activeTab   = 'avalanche';
-let chart       = null;
-let debtId      = 0;
-let extraId     = 0;
-let updateTimer = null;
-let encodeTimer = null;
+let debts          = [];
+let extras         = [];
+let activeTab      = 'avalanche';
+let chart          = null;
+let debtId         = 0;
+let extraId        = 0;
+let updateTimer    = null;
+let encodeTimer    = null;
 let lastAv         = null;
 let lastSb         = null;
 let lastIdentical  = false;
 let lastValid      = [];
 let lastSimKey     = '';
+let monthlyBudget  = 0;
 let previewAmount  = 50;
 let previewFreq    = 'monthly';
 let previewHistory = null;
 let baselineHistory = null;
 let baselineResult  = null;
 let showOriginalSchedule = false;
+let origScheduleRestored = false;
 
 const FREQ = {
   daily:       { label: 'Daily',          mult: 365 / 12 },
@@ -107,7 +109,6 @@ function makeCard(id) {
           </div>
         </div>
       </div>
-      <div id="typeFields-${id}"></div>
       <div class="debt-callout" id="callout-${id}"></div>
       <div class="past-due-section">
         <label class="past-due-toggle-label">
@@ -131,7 +132,7 @@ function makeCard(id) {
         </div>
       </div>
       <div id="bottomFields-${id}"></div>
-      <div class="debt-hint" id="debtHint-${id}">Fill in all fields to see your results</div>
+      <div class="debt-hint" id="debtHint-${id}">Enter a balance to include this debt</div>
     </div>`;
   return el;
 }
@@ -145,8 +146,6 @@ function onTypeChange(id) {
   const sel = document.querySelector(`[data-field="debtType"][data-id="${id}"]`);
   const newType = sel?.value || 'credit_card';
   debt.debtType = newType;
-  debt.minPayment = 0;
-  debt.useMinimum = false;
 
   // 'other' defaults to 0% APR
   if (newType === 'other') {
@@ -160,124 +159,24 @@ function onTypeChange(id) {
   bump();
 }
 
-// Shared field builders
-function moneyPaymentField(id, debt) {
-  const val = debt.minPayment ? normalizeDollarInput(debt.minPayment) : '';
-  return `
-    <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:12px">
-      <div class="field">
-        <label style="display:flex;align-items:center;gap:6px">
-          What I plan to pay each month
-          <span class="info-tooltip pmt-warn" id="pmtWarn-${id}" style="display:none" data-tip-id="${id}"><i class="warn-icon">!</i></span>
-        </label>
-        <div class="input-wrap has-prefix">
-          <span class="input-prefix">$</span>
-          <input type="text" inputmode="decimal" placeholder="0" data-field="minPayment" data-id="${id}" autocomplete="off" value="${val}">
-        </div>
-      </div>
-    </div>`;
-}
-
-// Calculate a first-month minimum payment estimate for display
-function calcMinPreview(debt) {
-  if (!debt.balance || debt.balance <= 0) return '~$25/mo';
-  const rate = (debt.apr || 0) / 1200;
-  const interest = debt.balance * rate;
-  const min = Math.min(debt.balance, Math.max(25, debt.balance * 0.01 + interest, debt.balance * 0.02));
-  return '~' + fmt(min) + '/mo';
-}
-
-// Show/hide the ! warning on the payment field if entry is below estimated minimum
-function checkPaymentWarn(debt) {
-  const warnEl = document.getElementById('pmtWarn-' + debt.id);
-  if (!warnEl) return;
-
-  // Only warn when we can estimate a minimum: need balance + apr
-  const canEstimate = debt.balance > 0 && debt.apr > 0;
-  // Don't warn when useMinimum is checked (it's handled automatically)
-  if (!canEstimate || debt.useMinimum || !debt.minPayment) {
-    warnEl.style.display = 'none'; return;
-  }
-
-  const rate = debt.apr / 1200;
-  const interest = debt.balance * rate;
-  const estMin = Math.min(debt.balance, Math.max(25, debt.balance * 0.01 + interest, debt.balance * 0.02));
-
-  if (debt.minPayment < estMin) {
-    if (!window._pmtWarnText) window._pmtWarnText = {};
-    window._pmtWarnText[debt.id] = `This may be below the typical minimum payment. Lenders may require at least ${fmt(Math.ceil(estMin))}/mo.`;
-    warnEl.style.display = 'inline-flex';
-  } else {
-    warnEl.style.display = 'none';
-  }
-}
-
-// Refresh the minimum preview placeholder when balance or APR changes
-function refreshMinPreview(debt) {
-  if (debt.debtType !== 'credit_card' || !debt.useMinimum) return;
-  const pmtInput = document.querySelector(`[data-field="minPayment"][data-id="${debt.id}"]`);
-  if (pmtInput) pmtInput.placeholder = calcMinPreview(debt);
-}
-
 function updateCardForType(id, type) {
   const debt = debts.find(d => d.id === id);
   if (!debt) return;
-  const typeFieldsEl   = document.getElementById('typeFields-' + id);
   const calloutEl      = document.getElementById('callout-' + id);
   const bottomFieldsEl = document.getElementById('bottomFields-' + id);
   const aprFieldEl     = document.getElementById('aprField-' + id);
-  const balanceRow     = document.getElementById('balanceRow-' + id);
-  if (!typeFieldsEl || !calloutEl) return;
-
-  // Balance row always visible for all types
-  if (balanceRow) balanceRow.style.display = '';
+  if (!calloutEl) return;
 
   // Reset APR field
   const aprInput2 = aprFieldEl?.querySelector('input');
   if (aprInput2) { aprInput2.disabled = false; aprInput2.style.opacity = ''; }
 
-  // Clear bottom slot (student loan toggle); repopulate below if needed
+  // Clear bottom slot; repopulate below if needed
   if (bottomFieldsEl) bottomFieldsEl.innerHTML = '';
 
   switch (type) {
-    // ── Credit Card ───────────────────────────────────────────
-    case 'credit_card': {
-      const useMin = debt.useMinimum;
-      const pmtVal = useMin ? '' : (debt.minPayment ? normalizeDollarInput(debt.minPayment) : '');
-      const placeholder = useMin ? calcMinPreview(debt) : '150';
-      typeFieldsEl.innerHTML = `
-        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:12px">
-          <div class="field">
-            <label style="display:flex;align-items:center;gap:6px">
-              What I plan to pay each month
-              ${useMin ? '' : `<span class="info-tooltip pmt-warn" id="pmtWarn-${id}" style="display:none" data-tip-id="${id}"><i class="warn-icon">!</i></span>`}
-            </label>
-            <div class="input-wrap${useMin ? '' : ' has-prefix'}">
-              ${useMin ? '' : '<span class="input-prefix">$</span>'}
-              <input type="text" inputmode="decimal" placeholder="${placeholder}" data-field="minPayment" data-id="${id}" autocomplete="off" value="${pmtVal}"${useMin ? ' disabled style="opacity:0.5;font-style:italic"' : ''}>
-            </div>
-          </div>
-          <label class="checkbox-label" style="margin-top:10px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.8rem;color:var(--text-muted)">
-            <input type="checkbox" data-field="useMinimum" data-id="${id}"${useMin ? ' checked' : ''}>
-            Use estimated minimum
-            <span class="info-tooltip" data-tip="Minimum = max($25, 1% of balance + interest, 2% of balance). Recalculates each month as your balance drops."><i class="info-icon">i</i></span>
-          </label>
-        </div>`;
-      calloutEl.className = 'debt-callout';
-      break;
-    }
-
-    // ── Loan (personal, auto, mortgage, BNPL, etc.) ───────────
-    case 'loan': {
-      typeFieldsEl.innerHTML = moneyPaymentField(id, debt);
-      calloutEl.className = 'debt-callout';
-      break;
-    }
-
-    // ── Student Loan ──────────────────────────────────────────
     case 'student_loan': {
       const lt = debt.loanType || 'federal';
-      typeFieldsEl.innerHTML = moneyPaymentField(id, debt);
       if (bottomFieldsEl) {
         bottomFieldsEl.innerHTML = `
           <div class="plan-toggle" style="margin-top:10px">
@@ -294,23 +193,9 @@ function updateCardForType(id, type) {
       }
       break;
     }
-
-    // ── Other (medical, collections, anything else) ───────────
-    case 'other': {
-      typeFieldsEl.innerHTML = moneyPaymentField(id, debt);
+    default:
       calloutEl.className = 'debt-callout';
-      // Default APR to 0 if not set
-      if (!debt.apr) {
-        const aprEl = document.querySelector(`[data-field="apr"][data-id="${id}"]`);
-        if (aprEl) aprEl.value = '';
-      }
-      break;
-    }
-
-    default: {
-      typeFieldsEl.innerHTML = moneyPaymentField(id, debt);
-      calloutEl.className = 'debt-callout';
-    }
+      calloutEl.innerHTML = '';
   }
   updateCardPlaceholders(id, type);
 }
@@ -320,25 +205,14 @@ function updateCardPlaceholders(id, type) {
   const balEl  = document.querySelector(`[data-field="balance"][data-id="${id}"]`);
   const aprEl  = document.querySelector(`[data-field="apr"][data-id="${id}"]`);
   const cfg = {
-    credit_card:  { name: 'e.g. Chase Freedom',      bal: '3,500',  apr: '22.9' },
+    credit_card:  { name: 'e.g. Chase Freedom',       bal: '3,500',  apr: '22.9' },
     loan:         { name: 'e.g. Car / Mortgage / SoFi', bal: '15,000', apr: '7.5' },
-    student_loan: { name: 'e.g. Navient / MOHELA',   bal: '25,000', apr: '5.5'  },
-    other:        { name: 'e.g. Medical bill',        bal: '2,000',  apr: '0'    },
+    student_loan: { name: 'e.g. Navient / MOHELA',    bal: '25,000', apr: '5.5'  },
+    other:        { name: 'e.g. Medical bill',         bal: '2,000',  apr: '0'    },
   }[type] || { name: 'e.g. Debt name', bal: '5,000', apr: '0' };
   if (nameEl) nameEl.placeholder = cfg.name;
   if (balEl)  balEl.placeholder  = cfg.bal;
   if (aprEl)  aprEl.placeholder  = cfg.apr;
-}
-
-function onUseMinimumChange(id) {
-  const debt = debts.find(d => d.id === id);
-  if (!debt) return;
-  const cb = document.querySelector(`[data-field="useMinimum"][data-id="${id}"]`);
-  debt.useMinimum = !!cb?.checked;
-  if (debt.useMinimum) debt.minPayment = 0;
-  updateCardForType(id, 'credit_card');
-  checkPaymentWarn(debt);
-  bump();
 }
 
 function onPastDueChange(id) {
@@ -390,9 +264,7 @@ function addDebt(pre = {}) {
     name:          pre.name || '',
     balance:       +pre.balance || 0,
     apr:           +pre.apr || 0,
-    minPayment:    +pre.minPayment || 0,
     debtType:      dt,
-    useMinimum:    !!pre.useMinimum,
     loanType:      pre.loanType || 'federal',
     pastDue:       !!pre.pastDue,
     monthsPastDue: +pre.monthsPastDue || 0,
@@ -414,8 +286,6 @@ function addDebt(pre = {}) {
   updateCardForType(id, dt);
 
   if (pre.apr) { const a = card.querySelector('[data-field="apr"]'); if (a && !a.disabled) a.value = pre.apr; }
-  const pmtEl = card.querySelector('[data-field="minPayment"]');
-  if (pre.minPayment && pmtEl && !pmtEl.disabled) pmtEl.value = normalizeDollarInput(pre.minPayment);
 
   // Restore past due state
   if (pre.pastDue) {
@@ -494,7 +364,7 @@ function collapseAllDebts() {
 }
 
 // Money fields that need comma-formatting
-const MONEY_FIELDS = new Set(['balance', 'minPayment', 'pastDueAmount']);
+const MONEY_FIELDS = new Set(['balance', 'pastDueAmount']);
 
 document.getElementById('debtsList').addEventListener('input', e => {
   const el = e.target, id = +el.dataset.id, field = el.dataset.field;
@@ -513,13 +383,9 @@ document.getElementById('debtsList').addEventListener('input', e => {
     const newLen = el.value.length;
     try { el.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen)); } catch(_) {}
     debt[field] = parseInt(el.value.replace(/,/g, ''), 10) || 0;
-    refreshMinPreview(debt);
     if (field === 'balance') updateDebtSummary(id);
-    if (field === 'balance' || field === 'minPayment') checkPaymentWarn(debt);
   } else if (field === 'apr') {
     debt.apr = parseFloat(el.value) || 0;
-    refreshMinPreview(debt);
-    checkPaymentWarn(debt);
   } else {
     debt[field] = parseFloat(el.value) || 0;
   }
@@ -532,9 +398,8 @@ document.getElementById('debtsList').addEventListener('change', e => {
   const id = +el.dataset.id;
   const field = el.dataset.field;
   if (!field || !id) return;
-  if (field === 'debtType')   onTypeChange(id);
-  else if (field === 'pastDue')    onPastDueChange(id);
-  else if (field === 'useMinimum') onUseMinimumChange(id);
+  if (field === 'debtType') onTypeChange(id);
+  else if (field === 'pastDue') onPastDueChange(id);
 });
 
 // Click delegation for debt card actions
@@ -550,6 +415,18 @@ document.getElementById('debtsList').addEventListener('click', e => {
   // Toggle card open/closed
   const header = e.target.closest('[data-action="toggle"]');
   if (header) { toggleDebt(+header.dataset.id); return; }
+});
+
+// Monthly budget input
+document.getElementById('monthlyBudgetInput').addEventListener('input', e => {
+  const el = e.target;
+  const pos = el.selectionStart;
+  const oldLen = el.value.length;
+  el.value = normalizeDollarInput(el.value);
+  const newLen = el.value.length;
+  try { el.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen)); } catch(_) {}
+  monthlyBudget = parseInt(el.value.replace(/,/g, ''), 10) || 0;
+  bump();
 });
 
 // Extra payment cards
@@ -725,8 +602,8 @@ function bump() {
   updateTimer = setTimeout(run, 100);
 }
 
-// getMinPayment, getFloor, getUserBudget, avSortKey, pastDuePriority, strategySort,
-// simulate, and firstMonthBreakdown are all provided by simulation.js (loaded in <head>)
+// getFloor, strategySort, simulate, firstMonthBreakdown, buildSchedule, calcWarnings
+// are all provided by simulation.js (loaded in <head>)
 
 // ==========================================================
 //  CHART
@@ -811,15 +688,16 @@ function drawChart(av, sb, identical) {
       borderColor: 'rgba(90,138,106,0.4)',
       backgroundColor: 'rgba(90,138,106,0.04)',
       borderWidth: 2.5,
-      pointRadius: 2.5,
-      pointHoverRadius: 5,
+      pointRadius: ctx => postZeroPtRadius(ctx, 2.5),
+      pointHoverRadius: ctx => postZeroPtRadius(ctx, 5),
       pointBackgroundColor: 'rgba(90,138,106,0.4)',
       pointBorderColor: 'rgba(90,138,106,0.4)',
+      segment: postZeroSegment,
       tension: 0.42, fill: false,
     });
   }
 
-  // Original schedule — faint grey dashed, clipped to current chart window
+  // Original schedule — faint grey solid, shown when toggled
   if (baselineHistory && showOriginalSchedule) {
     const clipped = baselineHistory.slice(0, len);
     const thinBaseline = (arr) => {
@@ -949,29 +827,46 @@ function renderBreakdown() {
     }
   });
 
+  // Build a floor lookup from the source debts
+  const floorById = {};
+  (lastValid || []).forEach(src => { floorById[src.id] = getFloorFromSource(src); });
+
   const debtRows = sorted.map(d => {
+    const pos = sorted.indexOf(d);
+    const posLabel = pos === 0 ? 'first' : pos === 1 ? 'second' : `#${pos + 1}`;
     const badge = d.monthsPastDue >= 3
-      ? `<span class="priority-badge urgent">Paying first · 3+ mo past due</span>`
+      ? `<span class="priority-badge urgent">Paying ${posLabel} · 3+ mo past due</span>`
       : d.monthsPastDue >= 1
-      ? `<span class="priority-badge overdue">Paying second · past due</span>`
+      ? `<span class="priority-badge overdue">Paying ${posLabel} · past due</span>`
       : '';
     const extraLabels = extraByDebt[String(d.id)] || [];
     const extraBadge  = extraLabels.map(l =>
       `<span class="extra-badge">${l}</span>`
     ).join('');
+    const floor = floorById[d.id] || 0;
+    const surplus = d.payment - floor;
+    const isMinOnly = surplus <= 1;
+    const minBadge = isMinOnly ? `<span class="min-badge">Min. payment</span>` : '';
+    const surplusBadge = (surplus > 1 && extraLabels.length === 0)
+      ? `<span class="extra-badge">+${fmtDec(surplus)}/mo extra</span>`
+      : '';
     const hasInterest = d.monthlyInterest > 0.01 && d.payment > 0;
     const piLine = hasInterest
       ? `<div class="pi-labels">${fmtDec(d.principal)} principal &middot; <span class="pi-i">${fmtDec(d.monthlyInterest)} interest</span></div>`
       : '';
+    const pastDueLine = d.pastDueAmount > 0
+      ? `<div class="pi-labels" style="color:#b94a3a">Includes ${fmt(d.pastDueAmount)} past due balance</div>`
+      : '';
     return `
       <div class="breakdown-row">
         <div class="breakdown-name">
-          <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-height:1.4em">${escHtml(d.name) || 'Unnamed debt'}${badge}${extraBadge}</div>
+          <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-height:1.4em">${escHtml(d.name) || 'Unnamed debt'}${badge}${minBadge}${surplusBadge}${extraBadge}</div>
           <small>${d.apr.toFixed(1)}% APR &middot; ${fmt(d.balance)} balance</small>
         </div>
         <div class="breakdown-right">
           <div class="breakdown-amount">${fmtDec(d.payment)}/mo</div>
           ${piLine}
+          ${pastDueLine}
         </div>
       </div>`;
   }).join('');
@@ -986,18 +881,21 @@ function renderWarnings(valid, sim) {
   const panel = document.getElementById('warningsPanel');
   if (!panel) return;
 
-  const raw = calcWarnings(valid, sim, extrasBreakdown());
+  const raw = calcWarnings(valid, sim, monthlyBudget);
   if (!raw.length) { panel.style.display = 'none'; return; }
 
   const dangerIcon  = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;margin-top:3px"><circle cx="7" cy="7" r="6.5" stroke="#8b3428" stroke-width="1.3"/><path d="M7 4v3.5" stroke="#8b3428" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="10" r="0.75" fill="#8b3428"/></svg>`;
   const cautionIcon = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;margin-top:3px"><circle cx="7" cy="7" r="6.5" stroke="#7a4a20" stroke-width="1.3"/><path d="M7 4v3.5" stroke="#7a4a20" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="10" r="0.75" fill="#7a4a20"/></svg>`;
 
   const htmlItems = raw.map(w => {
-    if (w.type === 'interest-exceeds-payment') {
-      return `<div class="warning-item danger" style="display:flex;align-items:flex-start;gap:8px">${dangerIcon}<span><strong>${escHtml(w.label)}</strong>: your payment only covers the interest — your balance will never go down. You need to pay at least <strong>${fmt(w.minNeeded)}/mo</strong> to start making progress.</span></div>`;
+    if (w.type === 'budget-too-low') {
+      const msg = w.hasPastDue
+        ? `Your budget may not be enough to cover minimums and catch up on past due balances. You need at least <strong>${fmt(w.minNeeded)}/mo</strong>.`
+        : `Your budget doesn't cover the minimum payments on all your debts. You need at least <strong>${fmt(w.minNeeded)}/mo</strong> to avoid falling behind.`;
+      return `<div class="warning-item danger" style="display:flex;align-items:flex-start;gap:8px">${dangerIcon}<span>${msg}</span></div>`;
     }
     if (w.type === 'no-payoff') {
-      return `<div class="warning-item danger" style="display:flex;align-items:flex-start;gap:8px">${dangerIcon}<span><strong>No payoff date found.</strong> We couldn't calculate when you'll be debt-free with your current payments. Try increasing your monthly payment.</span></div>`;
+      return `<div class="warning-item danger" style="display:flex;align-items:flex-start;gap:8px">${dangerIcon}<span><strong>No payoff date found.</strong> We couldn't calculate when you'll be debt-free with your current budget. Try increasing your monthly budget.</span></div>`;
     }
     if (w.type === 'federal-loan-high-apr') {
       return `<div class="warning-item caution" style="display:flex;align-items:flex-start;gap:8px">${cautionIcon}<span><strong>${escHtml(w.label)}</strong>: ${w.apr.toFixed(1)}% APR is high for a federal student loan. Double-check your rate — federal loans are typically below 8%.</span></div>`;
@@ -1088,10 +986,10 @@ function updatePreview() {
     optimal: eb.optimal + monthlyAmt,
     oneTime: (eb.oneTime || 0) + (isOneTime ? previewAmount : 0),
     targeted: eb.targeted,
-  }, 'avalanche');
+  }, 'avalanche', monthlyBudget);
   previewHistory = pr ? pr.history : null;
 
-  // Insight inside modal + callout under button
+  // Insight inside modal
   if (pr && lastAv) {
     const diffMo  = lastAv.months - pr.months;
     const diffInt = lastAv.interest - pr.interest;
@@ -1126,7 +1024,7 @@ function commitExtra() {
   document.getElementById('previewCallout').style.display = 'none';
   document.removeEventListener('mousedown', outsideClickClose);
   run();
-  if (isFirst && baselineResult && !showOriginalSchedule) toggleOriginalSchedule();
+  if (isFirst && baselineResult && !showOriginalSchedule && !origScheduleRestored) toggleOriginalSchedule();
 }
 
 // ==========================================================
@@ -1146,48 +1044,57 @@ function setTab(tab) {
 //  MAIN RUN
 // ==========================================================
 function run() {
-  const valid = debts.filter(d => {
-    if (!d.balance || d.balance <= 0) return false;
-    if (d.debtType === 'credit_card')  return d.useMinimum || d.minPayment > 0;
-    if (d.debtType === 'student_loan') return d.minPayment > 0;
-    return d.minPayment > 0;
-  });
-  const hasData = valid.length > 0;
+  const valid = debts.filter(d => d.balance > 0);
+  const hasData = valid.length > 0 && monthlyBudget > 0;
   refreshExtraTargets();
 
-  document.getElementById('emptyState').style.display = hasData ? 'none' : 'flex';
-  document.getElementById('results').style.display    = hasData ? 'block' : 'none';
+  // Update empty state messaging based on what's missing
+  const emptyEl = document.getElementById('emptyState');
+  const headingEl = document.getElementById('emptyHeading');
+  const textEl = document.getElementById('emptyText');
+
+  if (!hasData) {
+    emptyEl.style.display = 'flex';
+    document.getElementById('results').style.display = 'none';
+    if (valid.length > 0 && monthlyBudget <= 0) {
+      if (headingEl) headingEl.textContent = 'Enter your monthly budget to see results';
+      if (textEl) textEl.textContent = 'Fill in "What I can put toward debt each month" above to see exactly when you\'ll be debt free.';
+    } else {
+      if (headingEl) headingEl.textContent = 'Add your first debt to get started';
+      if (textEl) textEl.textContent = 'Add your debts and monthly budget, and we\'ll show you exactly when you\'ll be free of it. Your data never leaves your browser.';
+    }
+    return;
+  }
+
+  emptyEl.style.display = 'none';
+  document.getElementById('results').style.display = 'block';
 
   // Track first time results appear in this session
-  if (hasData && !window._trackedDebtEntered) {
+  if (!window._trackedDebtEntered) {
     window._trackedDebtEntered = true;
     trackEvent('debt-entered');
   }
 
-  // Show hint on cards that are incomplete (have a balance but missing other fields)
+  // Show hint on cards that are missing a balance
   debts.forEach(d => {
     const hintEl = document.getElementById('debtHint-' + d.id);
     if (!hintEl) return;
-    const isValid = valid.includes(d);
-    const isPartial = d.balance > 0 && !isValid;
-    hintEl.style.display = isPartial ? 'block' : 'none';
+    hintEl.style.display = d.balance <= 0 ? 'block' : 'none';
   });
-
-  if (!hasData) return;
 
   const eb = extrasBreakdown();
   lastValid = valid;
 
-  // Only re-simulate when debt/extra inputs actually changed
+  // Only re-simulate when inputs actually changed
   const simKey = JSON.stringify({
-    v: valid.map(d => [d.id, d.balance, d.apr, d.minPayment, d.debtType, d.useMinimum, d.pastDue, d.pastDueAmount, d.monthsPastDue]),
-    eb,
+    v: valid.map(d => [d.id, d.name, d.balance, d.apr, d.debtType, d.pastDue, d.pastDueAmount, d.monthsPastDue]),
+    eb, mb: monthlyBudget,
   });
   if (simKey !== lastSimKey) {
-    lastAv = simulate(valid, eb, 'avalanche');
-    lastSb = simulate(valid, eb, 'snowball');
+    lastAv = simulate(valid, eb, 'avalanche', monthlyBudget);
+    lastSb = simulate(valid, eb, 'snowball',  monthlyBudget);
     const hasExtras = eb.optimal > 0 || eb.oneTime > 0 || eb.targeted.length > 0;
-    baselineResult  = hasExtras ? simulate(valid, { optimal: 0, oneTime: 0, targeted: [] }, 'avalanche') : null;
+    baselineResult  = hasExtras ? simulate(valid, { optimal: 0, oneTime: 0, targeted: [] }, 'avalanche', monthlyBudget) : null;
     baselineHistory = baselineResult ? baselineResult.history : null;
     lastSimKey = simKey;
   }
@@ -1230,14 +1137,13 @@ function run() {
 function encodeUrl() {
   try {
     const state = {
-      v: 3,
+      v: 4,
+      mb: monthlyBudget,
       d: debts.map(d => ({
         n: d.name,
         b: d.balance,
         a: d.apr,
-        m: d.minPayment,
         t: d.debtType,
-        u: d.useMinimum ? 1 : 0,
         lt: d.loanType || '',
         pd: d.pastDue ? 1 : 0,
         mpd: d.monthsPastDue || 0,
@@ -1247,7 +1153,8 @@ function encodeUrl() {
     };
     const enc = btoa(JSON.stringify(state));
     const stratPart = activeTab === 'snowball' ? '&s=snowball' : '';
-    history.replaceState(null, '', location.pathname + '#p=' + enc + stratPart);
+    const origPart  = showOriginalSchedule ? '&o=1' : '&o=0';
+    history.replaceState(null, '', location.pathname + '#p=' + enc + stratPart + origPart);
   } catch (_) {}
 }
 
@@ -1257,26 +1164,45 @@ function decodeUrl() {
   if (!p) return false;
   try {
     const s = JSON.parse(atob(p));
-    if (s.v === 3) {
+
+    if (s.v === 4) {
+      monthlyBudget = s.mb || 0;
       if (Array.isArray(s.d)) s.d.forEach(d => addDebt({
-        name: d.n, balance: d.b, apr: d.a, minPayment: d.m,
+        name: d.n, balance: d.b, apr: d.a,
+        debtType: d.t, loanType: d.lt || 'federal',
+        pastDue: !!d.pd, monthsPastDue: d.mpd || 0, pastDueAmount: d.pda || 0,
+      }));
+    } else if (s.v === 3) {
+      // Legacy v3 had per-debt minPayment — sum them to reconstruct budget
+      monthlyBudget = Array.isArray(s.d) ? s.d.reduce((sum, d) => sum + (+d.m || 0), 0) : 0;
+      if (Array.isArray(s.d)) s.d.forEach(d => addDebt({
+        name: d.n, balance: d.b, apr: d.a,
         debtType: d.t, useMinimum: !!d.u, loanType: d.lt || 'federal',
         pastDue: !!d.pd, monthsPastDue: d.mpd || 0, pastDueAmount: d.pda || 0,
       }));
     } else if (s.v === 2) {
-      // Legacy v2 — map old types to new, restore what we can
+      monthlyBudget = Array.isArray(s.d) ? s.d.reduce((sum, d) => sum + (+d.m || 0), 0) : 0;
       if (Array.isArray(s.d)) s.d.forEach(d => addDebt({
-        name: d.n, balance: d.b, apr: d.a, minPayment: d.m,
-        debtType: d.t, loanType: d.lt || 'federal', useMinimum: false,
+        name: d.n, balance: d.b, apr: d.a,
+        debtType: d.t, loanType: d.lt || 'federal',
       }));
     } else if (Array.isArray(s.d)) {
       // Legacy v1 format (array-of-arrays)
+      monthlyBudget = s.d.reduce((sum, d) => sum + (+d[3] || 0), 0);
       s.d.forEach(d => addDebt({
-        name: d[0], balance: d[1], apr: d[2], minPayment: d[3],
+        name: d[0], balance: d[1], apr: d[2],
         debtType: d[4] || 'credit_card',
       }));
     }
+
     if (Array.isArray(s.e)) s.e.forEach(e => addExtra({ amount: e[0], freq: e[1], targetId: e[2] || null }));
+
+    // Restore budget input
+    if (monthlyBudget > 0) {
+      const bi = document.getElementById('monthlyBudgetInput');
+      if (bi) bi.value = normalizeDollarInput(monthlyBudget);
+    }
+
     // Restore strategy
     const strat = new URLSearchParams(hash).get('s');
     if (strat === 'snowball') {
@@ -1284,6 +1210,21 @@ function decodeUrl() {
       document.getElementById('tabAv').className = 'tab-btn';
       document.getElementById('tabSb').className = 'tab-btn tab-sb';
     }
+
+    // Restore "show original" toggle
+    const origParam = new URLSearchParams(hash).get('o');
+    if (origParam !== null) {
+      origScheduleRestored = true;
+      showOriginalSchedule = origParam === '1';
+      const btn = document.getElementById('origBtn');
+      if (btn) {
+        btn.classList.toggle('active', showOriginalSchedule);
+        btn.textContent = showOriginalSchedule ? 'Hide original' : 'Show original';
+      }
+      const leg = document.getElementById('chartLineLegend');
+      if (leg) leg.style.display = showOriginalSchedule ? '' : 'none';
+    }
+
     return true;
   } catch (_) { return false; }
 }
@@ -1325,8 +1266,6 @@ function fallbackCopy(text, cb) {
   document.body.removeChild(el);
 }
 
-// Email signup handled by Tally popup (data-tally-open="J98LA7")
-
 // ==========================================================
 //  ANALYTICS (GoatCounter)
 // ==========================================================
@@ -1337,12 +1276,9 @@ function trackEvent(name) {
 }
 
 function initAnalytics() {
-  // Shared plan visit — URL contains a shared plan hash
   if (location.hash.startsWith('#p=')) {
     trackEvent('shared-plan-view');
   }
-
-  // Return visitor — use localStorage to distinguish first vs. repeat visits
   if (localStorage.getItem('tz_visited')) {
     trackEvent('return-visit');
   } else {
@@ -1350,7 +1286,6 @@ function initAnalytics() {
   }
 }
 
-// Wait for GoatCounter to load before firing events
 window.addEventListener('load', initAnalytics);
 
 // ==========================================================
@@ -1369,7 +1304,6 @@ function hideInfoTooltip() {
   document.getElementById('infoTooltip').style.display = 'none';
 }
 
-// Tooltip delegation — replaces all onmouseenter/onmouseleave inline handlers
 document.addEventListener('mouseover', e => {
   const tipEl = e.target.closest('[data-tip]');
   if (tipEl) { showInfoTooltip(tipEl, tipEl.dataset.tip); return; }
@@ -1386,11 +1320,11 @@ document.addEventListener('mouseout', e => {
 // ==========================================================
 document.getElementById('headerShareBtn').addEventListener('click', shareUrl);
 document.getElementById('tabAv').addEventListener('click', e => {
-  if (e.target.closest('[data-tip]')) return; // don't fire tab change when clicking tooltip
+  if (e.target.closest('[data-tip]')) return;
   setTab('avalanche');
 });
 document.getElementById('tabSb').addEventListener('click', e => {
-  if (e.target.closest('[data-tip]')) return; // don't fire tab change when clicking tooltip
+  if (e.target.closest('[data-tip]')) return;
   setTab('snowball');
 });
 

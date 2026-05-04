@@ -264,7 +264,7 @@
 <script>
 // ── State ────────────────────────────────────────────────
 let activeTab = 'avalanche';
-let state = null; // { debts, extras }
+let state = null; // { debts, extras, monthlyBudget }
 let backLink = null; // set at init
 const simCache      = {};   // strategy → simulate() result
 const scheduleCache = {};   // strategy → buildSchedule() result
@@ -279,6 +279,7 @@ function decodeState() {
     const debts = [];
     const extras = [];
     let idCounter = 0;
+    let monthlyBudget = 0;
 
     const normalizeType = t => {
       if (!t || t === 'card') return 'credit_card';
@@ -288,24 +289,33 @@ function decodeState() {
       return ['credit_card','loan','student_loan','other'].includes(t) ? t : 'credit_card';
     };
 
-    if (raw.v === 3 && Array.isArray(raw.d)) {
+    if (raw.v === 4 && Array.isArray(raw.d)) {
+      monthlyBudget = raw.mb || 0;
       raw.d.forEach(d => debts.push({
         id: ++idCounter, name: d.n || '', balance: +d.b || 0, apr: +d.a || 0,
-        minPayment: +d.m || 0, debtType: normalizeType(d.t), useMinimum: !!d.u,
-        loanType: d.lt || 'federal', pastDue: !!d.pd,
-        monthsPastDue: +d.mpd || 0, pastDueAmount: +d.pda || 0,
+        debtType: normalizeType(d.t), loanType: d.lt || 'federal',
+        pastDue: !!d.pd, monthsPastDue: +d.mpd || 0, pastDueAmount: +d.pda || 0,
+      }));
+    } else if (raw.v === 3 && Array.isArray(raw.d)) {
+      monthlyBudget = raw.d.reduce((s, d) => s + (+d.m || 0), 0);
+      raw.d.forEach(d => debts.push({
+        id: ++idCounter, name: d.n || '', balance: +d.b || 0, apr: +d.a || 0,
+        debtType: normalizeType(d.t), loanType: d.lt || 'federal',
+        pastDue: !!d.pd, monthsPastDue: +d.mpd || 0, pastDueAmount: +d.pda || 0,
       }));
     } else if (raw.v === 2 && Array.isArray(raw.d)) {
+      monthlyBudget = raw.d.reduce((s, d) => s + (+d.m || 0), 0);
       raw.d.forEach(d => debts.push({
         id: ++idCounter, name: d.n || '', balance: +d.b || 0, apr: +d.a || 0,
-        minPayment: +d.m || 0, debtType: normalizeType(d.t), useMinimum: false,
-        loanType: d.lt || 'federal', pastDue: false, monthsPastDue: 0, pastDueAmount: 0,
+        debtType: normalizeType(d.t), loanType: d.lt || 'federal',
+        pastDue: false, monthsPastDue: 0, pastDueAmount: 0,
       }));
     } else if (Array.isArray(raw.d)) {
+      monthlyBudget = raw.d.reduce((s, d) => s + (+d[3] || 0), 0);
       raw.d.forEach(d => debts.push({
         id: ++idCounter, name: d[0] || '', balance: +d[1] || 0, apr: +d[2] || 0,
-        minPayment: +d[3] || 0, debtType: normalizeType(d[4]),
-        useMinimum: false, loanType: 'federal', pastDue: false, monthsPastDue: 0, pastDueAmount: 0,
+        debtType: normalizeType(d[4]), loanType: 'federal',
+        pastDue: false, monthsPastDue: 0, pastDueAmount: 0,
       }));
     }
 
@@ -315,27 +325,24 @@ function decodeState() {
       });
     }
 
-    return { debts, extras };
+    return { debts, extras, monthlyBudget };
   } catch (_) { return null; }
 }
 
 // ── Compute extras breakdown ─────────────────────────────
 function computeEB(extras) {
   const MULT = { daily: 365/12, weekly: 52/12, monthly: 1, quarterly: 1/3, biannually: 1/6, yearly: 1/12 };
-  const me = e => e.amount * (MULT[e.freq] ?? 1);
+  const me = e => e.freq === 'one_time' ? 0 : e.amount * (MULT[e.freq] ?? 1);
   return {
-    optimal:  extras.filter(e => !e.targetId).reduce((s, e) => s + me(e), 0),
-    targeted: extras.filter(e =>  e.targetId).map(e => ({ id: e.targetId, amount: me(e) })),
+    oneTime:  extras.filter(e => e.freq === 'one_time' && !e.targetId).reduce((s, e) => s + e.amount, 0),
+    optimal:  extras.filter(e => !e.targetId && e.freq !== 'one_time').reduce((s, e) => s + me(e), 0),
+    targeted: extras.filter(e =>  e.targetId && e.freq !== 'one_time').map(e => ({ id: e.targetId, amount: me(e) })),
   };
 }
 
-// ── Valid debts (same filter as app.js run()) ────────────
+// ── Valid debts: any debt with a positive balance ────────
 function validDebts(debts) {
-  return debts.filter(d => {
-    if (!d.balance || d.balance <= 0) return false;
-    if (d.debtType === 'credit_card') return d.useMinimum || d.minPayment > 0;
-    return d.minPayment > 0;
-  });
+  return debts.filter(d => d.balance > 0);
 }
 
 // ── Hash strategy helpers ─────────────────────────────────
@@ -351,8 +358,9 @@ function updateHashStrategy(strat) {
 function render() {
   const valid = validDebts(state.debts);
   const eb    = computeEB(state.extras);
+  const mb    = state.monthlyBudget || 0;
 
-  if (!valid.length) {
+  if (!valid.length || !mb) {
     document.getElementById('emptyState').style.display = '';
     document.getElementById('content').style.display    = 'none';
     return;
@@ -361,15 +369,15 @@ function render() {
   document.getElementById('content').style.display    = '';
 
   // Detect identical strategies — cache both sim results and schedules (state is immutable after load)
-  if (!simCache.avalanche) simCache.avalanche = simulate(valid, eb, 'avalanche');
-  if (!simCache.snowball)  simCache.snowball  = simulate(valid, eb, 'snowball');
+  if (!simCache.avalanche) simCache.avalanche = simulate(valid, eb, 'avalanche', mb);
+  if (!simCache.snowball)  simCache.snowball  = simulate(valid, eb, 'snowball',  mb);
   const av = simCache.avalanche, sb = simCache.snowball;
   const identical = av && sb && av.months === sb.months && Math.abs(av.interest - sb.interest) < 1;
   document.getElementById('tabsWrap').style.display          = identical ? 'none' : '';
   document.getElementById('strategiesSameNote').style.display = identical ? '' : 'none';
 
   const simResult = activeTab === 'avalanche' ? av : sb;
-  if (!scheduleCache[activeTab]) scheduleCache[activeTab] = buildSchedule(valid, eb, activeTab);
+  if (!scheduleCache[activeTab]) scheduleCache[activeTab] = buildSchedule(valid, eb, activeTab, mb);
   const schedule = scheduleCache[activeTab];
 
   renderSummary(simResult, valid);
