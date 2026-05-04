@@ -584,12 +584,13 @@ function showRecommendation(eid) {
   // Find optimal target (highest APR = avalanche)
   const optimalDebt = [...validDebts].sort((a, b) => b.apr - a.apr)[0];
 
+  const labelOf = d => d.name || ('Debt ' + (debts.indexOf(d) + 1));
   if (chosenDebt.id === optimalDebt.id) {
-    rec.textContent = `Great call. ${chosenDebt.name || 'This debt'} has the highest APR so it costs you the most — targeting it first is the optimal move.`;
+    rec.textContent = `Great call. ${labelOf(chosenDebt)} has the highest APR so it costs you the most — targeting it first is the optimal move.`;
     rec.className = 'extra-rec good show';
   } else {
     const aprDiff = (optimalDebt.apr - chosenDebt.apr).toFixed(1);
-    rec.innerHTML = `<strong>${escHtml(optimalDebt.name) || 'Debt with highest APR'}</strong> is charging ${optimalDebt.apr.toFixed(1)}% vs ${chosenDebt.apr.toFixed(1)}% — putting this toward that debt first would save more in interest (${aprDiff}% difference).`;
+    rec.innerHTML = `<strong>${escHtml(labelOf(optimalDebt))}</strong> is charging ${optimalDebt.apr.toFixed(1)}% vs ${chosenDebt.apr.toFixed(1)}% — putting this toward that debt first would save more in interest (${aprDiff}% difference).`;
     rec.className = 'extra-rec tip show';
   }
 }
