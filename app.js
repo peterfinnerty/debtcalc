@@ -768,7 +768,9 @@ function drawChart(av, sb, identical) {
     type: 'line', data,
     options: {
       responsive: true, maintainAspectRatio: false,
-      animation: { duration: 900, easing: 'easeInOutQuart' },
+      animation: document.documentElement.classList.contains('has-data')
+        ? false
+        : { duration: 900, easing: 'easeInOutQuart' },
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: false },
