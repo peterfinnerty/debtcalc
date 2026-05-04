@@ -789,12 +789,15 @@ function drawChart(av, sb, identical) {
     tension: 0.42, fill: false,
   });
 
-  const datasets = identical
-    ? [ payoffDataset('Balance', thin(av.history), '#c4824a', 'rgba(196,130,74,0.07)') ]
-    : [
-        payoffDataset('Avalanche', thin(av.history), '#c4824a', 'rgba(196,130,74,0.07)'),
-        payoffDataset('Snowball',  thin(sb.history), '#4a7a9b', 'rgba(74,122,155,0.05)'),
-      ];
+  // Single "Planned" line using whichever strategy the user has selected.
+  // Color matches the strategy chip (orange = avalanche, blue = snowball).
+  const isAv = activeTab === 'avalanche';
+  const activeColor = isAv ? '#c4824a' : '#4a7a9b';
+  const activeBg    = isAv ? 'rgba(196,130,74,0.07)' : 'rgba(74,122,155,0.05)';
+  const activeData  = isAv ? av.history : sb.history;
+  const datasets = [ payoffDataset('Planned', thin(activeData), activeColor, activeBg) ];
+  // Sync the bottom legend's Planned dot to the active strategy
+  document.getElementById('cllPlannedDot')?.setAttribute('fill', activeColor);
 
   // Preview line — faded solid green, only when modal is open
   if (previewHistory) {
@@ -1151,6 +1154,8 @@ function setTab(tab) {
   renderSummary();
   renderBreakdown();
   renderPayoffTimeline();
+  // Recolor the chart's Planned line + the bottom legend dot to match the new strategy
+  if (lastAv && lastSb) drawChart(lastAv, lastSb, lastIdentical);
 }
 
 // ==========================================================
@@ -1297,10 +1302,9 @@ function run() {
   strategiesSameNote.style.visibility = identical ? 'visible' : 'hidden';
   const origBtn = document.getElementById('origBtn');
   if (origBtn) origBtn.style.display = baselineHistory ? 'flex' : 'none';
+  // Top-right Avalanche/Snowball legend is obsolete now that the chart shows a single Planned line
   const legend = document.getElementById('chartLegend');
-  if (legend) legend.style.display = (identical && !baselineHistory) ? 'none' : '';
-  document.getElementById('avLegendItem')?.style.setProperty('display', identical ? 'none' : '');
-  document.getElementById('sbLegendItem')?.style.setProperty('display', identical ? 'none' : '');
+  if (legend) legend.style.display = 'none';
 
   // Chart subtitle
   const total = valid.reduce((s, d) => s + d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0), 0);
