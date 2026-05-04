@@ -1267,7 +1267,9 @@ function encodeUrl() {
 
 function decodeUrl() {
   const hash = location.hash.slice(1); // strip leading #
-  const p = new URLSearchParams(hash).get('p');
+  // URLSearchParams decodes + as space which breaks base64 — use regex instead
+  const pm = hash.match(/(?:^|&)p=([^&]+)/);
+  const p = pm ? pm[1] : null;
   if (!p) return false;
   try {
     const s = JSON.parse(atob(p));
@@ -1310,8 +1312,9 @@ function decodeUrl() {
       if (bi) bi.value = normalizeDollarInput(monthlyBudget);
     }
 
-    // Restore strategy
-    const strat = new URLSearchParams(hash).get('s');
+    // Restore strategy (use regex to avoid URLSearchParams + → space corruption)
+    const sm = hash.match(/(?:^|&)s=([^&]+)/);
+    const strat = sm ? sm[1] : null;
     if (strat === 'snowball') {
       activeTab = 'snowball';
       document.getElementById('tabAv').className = 'tab-btn';
