@@ -808,17 +808,47 @@
     }
     .em-commit:hover { background: #4a7a5a; }
 
-    /* Strategy tabs */
-    .tabs-wrap { display: flex; gap: 0; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
-    .tab-btn {
-      flex: 1; padding: 11px 16px; background: var(--surface2);
-      border: none; cursor: pointer; font-size: 0.85rem; font-weight: 600;
-      color: var(--text-muted); transition: all var(--transition);
-      display: flex; align-items: center; justify-content: center; gap: 7px;
+    /* Strategy selector — segmented pill with sliding thumb (mobile-style) */
+    .tabs-section { margin-bottom: 16px; }
+    .tabs-section-label {
+      font-size: 0.68rem; font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      margin-bottom: 8px;
     }
-    .tab-btn:first-child { border-right: 1px solid var(--border); }
-    .tab-btn.tab-av { background: var(--amber-light); color: var(--amber); }
-    .tab-btn.tab-sb { background: var(--blue-light);  color: var(--blue); }
+    .tabs-wrap {
+      display: grid; grid-template-columns: 1fr 1fr;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 3px;
+      position: relative;
+    }
+    .tab-thumb {
+      position: absolute;
+      top: 3px; bottom: 3px;
+      left: 3px;
+      width: calc(50% - 3px);
+      background: #fff;
+      border-radius: 999px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 0 0 1px var(--border);
+      transition: transform 320ms cubic-bezier(.34,1.4,.64,1);
+      z-index: 1;
+    }
+    .tab-thumb.is-right { transform: translateX(100%); }
+    .tab-btn {
+      appearance: none; border: 0; background: transparent;
+      padding: 8px 18px;
+      font: inherit; font-size: 13px; font-weight: 500;
+      color: var(--text-muted);
+      border-radius: 999px;
+      cursor: pointer;
+      position: relative; z-index: 2;
+      transition: color 200ms ease;
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      white-space: nowrap;
+    }
+    .tab-btn.is-active { color: var(--text); font-weight: 600; }
 
     .badge {
       font-size: 0.65rem; font-weight: 800; padding: 2px 7px;
@@ -887,22 +917,6 @@
     .payoff-name { font-size: 0.875rem; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .payoff-date { font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; }
     .payoff-date strong { color: var(--text); font-weight: 700; }
-
-    /* Identical-strategies state — grey out tabs, show note below */
-    .tabs-section { display: block; }
-    .tabs-wrap.strategies-same .tab-btn {
-      opacity: 0.4;
-      cursor: default;
-      pointer-events: none;
-    }
-    .tabs-wrap.strategies-same .tab-btn .info-tooltip {
-      pointer-events: auto;
-    }
-    .strategies-same-note {
-      font-size: 0.75rem; color: var(--text-muted);
-      margin-top: 7px;
-      text-align: center;
-    }
 
     /* Schedule link in payoff timeline card */
     .schedule-link {
@@ -1141,20 +1155,21 @@
         </div>
       </div>
 
-      <!-- Tabs + Summary -->
+      <!-- Strategy selector + Summary -->
       <div class="fade-in" style="margin-bottom:24px">
-        <div class="tabs-section">
-        <div class="tabs-wrap" id="tabsWrap">
-          <button class="tab-btn tab-av" id="tabAv">
-            Avalanche
-            <span class="info-tooltip" data-tip="Pay off your highest-interest debt first. Minimizes total interest paid — the mathematically optimal strategy."><i class="info-icon">i</i></span>
-          </button>
-          <button class="tab-btn" id="tabSb">
-            Snowball
-            <span class="info-tooltip" data-tip="Pay off your smallest balance first. Builds momentum with quick wins — great if you need motivation to stay on track."><i class="info-icon">i</i></span>
-          </button>
-        </div>
-        <div id="strategiesSameNote" style="visibility:hidden" class="strategies-same-note">Both strategies give the same result for your debts.</div>
+        <div class="tabs-section" id="tabsSection">
+          <div class="tabs-section-label">Repayment strategy</div>
+          <div class="tabs-wrap" id="tabsWrap">
+            <div class="tab-thumb" id="tabThumb"></div>
+            <button class="tab-btn is-active" id="tabAv">
+              Avalanche
+              <span class="info-tooltip" data-tip="Pay off your highest-interest debt first. Minimizes total interest paid — the mathematically optimal strategy."><i class="info-icon">i</i></span>
+            </button>
+            <button class="tab-btn" id="tabSb">
+              Snowball
+              <span class="info-tooltip" data-tip="Pay off your smallest balance first. Builds momentum with quick wins — great if you need motivation to stay on track."><i class="info-icon">i</i></span>
+            </button>
+          </div>
         </div>
         <div id="summaryArea"></div>
       </div>
@@ -1190,7 +1205,7 @@
   </div>
 </div>
 
-<script src="app.js?v=33"></script>
+<script src="app.js?v=34"></script>
 <div id="infoTooltip"></div>
 </body>
 </html>

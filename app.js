@@ -1148,8 +1148,9 @@ function commitExtra() {
 // ==========================================================
 function setTab(tab) {
   activeTab = tab;
-  document.getElementById('tabAv').className = 'tab-btn' + (tab === 'avalanche' ? ' tab-av' : '');
-  document.getElementById('tabSb').className = 'tab-btn' + (tab === 'snowball'  ? ' tab-sb' : '');
+  document.getElementById('tabAv').className = 'tab-btn' + (tab === 'avalanche' ? ' is-active' : '');
+  document.getElementById('tabSb').className = 'tab-btn' + (tab === 'snowball'  ? ' is-active' : '');
+  document.getElementById('tabThumb')?.classList.toggle('is-right', tab === 'snowball');
   encodeUrl(); // persist strategy to hash so amortization link stays in sync
   renderSummary();
   renderBreakdown();
@@ -1293,13 +1294,12 @@ function run() {
   }
   if (!lastAv || !lastSb) return;
 
-  // Grey out strategy tabs + hide legend when both strategies are identical
+  // When the two strategies yield the same result, hide the selector entirely
+  // (instead of showing a disabled toggle with a note).
   const identical = lastAv.months === lastSb.months && Math.abs(lastAv.interest - lastSb.interest) < 1;
   lastIdentical = identical;
-  const tabsWrap = document.getElementById('tabsWrap');
-  tabsWrap.classList.toggle('strategies-same', identical);
-  const strategiesSameNote = document.getElementById('strategiesSameNote');
-  strategiesSameNote.style.visibility = identical ? 'visible' : 'hidden';
+  const tabsSection = document.getElementById('tabsSection');
+  if (tabsSection) tabsSection.style.display = identical ? 'none' : '';
   const origBtn = document.getElementById('origBtn');
   if (origBtn) origBtn.style.display = baselineHistory ? 'flex' : 'none';
   // Top-right Avalanche/Snowball legend is obsolete now that the chart shows a single Planned line
@@ -1407,7 +1407,8 @@ function decodeUrl() {
     if (strat === 'snowball') {
       activeTab = 'snowball';
       document.getElementById('tabAv').className = 'tab-btn';
-      document.getElementById('tabSb').className = 'tab-btn tab-sb';
+      document.getElementById('tabSb').className = 'tab-btn is-active';
+      document.getElementById('tabThumb')?.classList.add('is-right');
     }
 
     // Restore "show original" toggle
