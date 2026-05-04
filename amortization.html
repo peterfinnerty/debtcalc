@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Amortization Schedule — To Zero</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <script src="precheck.js"></script>
   <script src="simulation.js?v=5"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -193,6 +194,8 @@
       text-align: center; padding: 80px 24px;
       color: var(--text-muted);
     }
+    /* Loading with a saved plan in the URL — hide empty state before JS swaps to content */
+    html.has-data #emptyState { display: none; }
     .empty-state h2 { font-size: 1.1rem; color: var(--text); margin-bottom: 8px; }
     .empty-state p  { font-size: 0.875rem; margin-bottom: 20px; }
     .btn-back {
@@ -261,6 +264,6 @@
 
 </div>
 
-<script src="amortization.js"></script>
+<script src="amortization.js?v=2"></script>
 </body>
 </html>

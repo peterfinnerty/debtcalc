@@ -265,6 +265,10 @@ if (state && state.debts.length) {
     render();
     document.getElementById('emptyState').style.display = 'none';
   } catch(e) {
+    document.documentElement.classList.remove('has-data');
     document.getElementById('emptyState').innerHTML += `<p style="color:red;font-size:11px;margin-top:12px">Error: ${e.message}</p>`;
   }
+} else {
+  // No valid plan in URL — release the no-flash class so emptyState reappears
+  document.documentElement.classList.remove('has-data');
 }
