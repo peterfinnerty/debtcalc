@@ -689,12 +689,15 @@ function externalTooltipHandler(context) {
   const original = dps.find(d => d.dataset.label === 'Original schedule');
   const preview  = dps.find(d => d.dataset.label === 'With extra');
 
-  // Hide near the right edge where balances reach $0 — reads like noise
-  const allZeroish =
-    (!planned || planned.parsed.y < 1) &&
-    (!original || original.parsed.y < 1) &&
-    (!preview  || preview.parsed.y  < 1);
-  if (allZeroish) { el.style.opacity = '0'; return; }
+  // Hide only if every series we'd show has a real numeric value < $1.
+  // Treat null (past the end of a series) as "no opinion" — don't let it suppress
+  // the tooltip, since seeing planned=$0 alongside original=$X is meaningful.
+  const meaningful = [planned, original, preview]
+    .filter(d => d && typeof d.parsed.y === 'number');
+  if (meaningful.length && meaningful.every(d => d.parsed.y < 1)) {
+    el.style.opacity = '0';
+    return;
+  }
 
   const dateLabel = (planned || original || preview).label;
   const rows = [];
