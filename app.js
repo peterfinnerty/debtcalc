@@ -1170,6 +1170,7 @@ function run() {
       emptyEl.classList.add('is-leaving');
       resultsEl.classList.add('is-entering');
       hasEverRevealed = true;
+      updateShareBtn();
     }
     // Otherwise wait for the explicit "See my path to zero" button click
   } else {
@@ -1338,7 +1339,21 @@ function decodeUrl() {
 // ==========================================================
 //  SHARE
 // ==========================================================
+function updateShareBtn() {
+  const btn = document.getElementById('headerShareBtn');
+  if (!btn) return;
+  btn.classList.toggle('is-locked', !hasEverRevealed);
+}
+
 function shareUrl() {
+  if (!hasEverRevealed) {
+    const toast = document.getElementById('shareLockToast');
+    if (toast) {
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+    return;
+  }
   trackEvent('share-click');
   encodeUrl();
   // Build a /plan?p=... URL so iMessage/Slack get the custom OG preview,
@@ -1485,9 +1500,11 @@ document.getElementById('calcBtn').addEventListener('click', () => {
     emptyEl.classList.add('is-leaving');
     resultsEl.classList.add('is-entering');
     hasEverRevealed = true;
+    updateShareBtn();
     run();
   }, 450);
 });
 
+updateShareBtn();
 if (!decodeUrl()) { isFirstRun = false; addDebt(); }
 else run();

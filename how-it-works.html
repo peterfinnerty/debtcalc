@@ -308,7 +308,7 @@
   </div>
   <h1>To Zero <span>— debt payoff calculator</span></h1>
   <div class="header-nav">
-    <a href="/" class="btn-back" onclick="if(history.length>1){history.back();return false;}">
+    <a href="/" class="btn-back" onclick="var u=sessionStorage.getItem('calcUrl');if(u){location.href=u;return false;}if(history.length>1){history.back();return false;}">
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
         <path d="M7.5 1.5L3 6l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
