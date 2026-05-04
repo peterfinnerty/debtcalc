@@ -308,7 +308,8 @@ function addDebt(pre = {}) {
 
   // Show hint immediately without waiting for run()
   const hintEl = document.getElementById('debtHint-' + id);
-  if (hintEl) hintEl.style.display = (debt.balance <= 0 || debt.apr === null) ? 'block' : 'none';
+  const newDebt = debts[debts.length - 1];
+  if (hintEl) hintEl.style.display = (newDebt.balance <= 0 || newDebt.apr === null) ? 'block' : 'none';
 
   renumber();
   bump();
