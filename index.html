@@ -446,9 +446,8 @@
       left: 0; right: 0; top: 0;
       border-top: 1px solid #EFE7D5;
     }
-    .cl-done { opacity: 0.55; }
     .cl-done .cl-label { color: #8A8377; }
-    .cl-done .cl-num   { color: #D97742; }
+    .cl-done .cl-num   { color: var(--green); }
     .cl-num-wrap { position: relative; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; }
     .cl-num { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; color: #4D483E; transition: color 240ms ease, transform 200ms cubic-bezier(.34,1.6,.64,1); }
     .cl-done .cl-num { animation: cl-num-pop 420ms cubic-bezier(.34,1.7,.64,1); }
@@ -464,11 +463,14 @@
     .cl-scratch-path { stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke-dashoffset 220ms cubic-bezier(.4,0,.6,1); }
     .cl-done .cl-scratch-path { stroke-dashoffset: 0; transition: stroke-dashoffset 520ms cubic-bezier(.65,.05,.36,1) 80ms; }
     .cl-hint {
-      font-size: 12px; color: #4D483E;
-      background: #FAF6EE; border: 1px solid #EFE7D5;
+      font-size: 12px; color: var(--green);
+      background: var(--green-light); border: 1px solid rgba(90,138,106,0.25);
       padding: 3px 9px; border-radius: 999px;
       white-space: nowrap;
+      font-weight: 500;
     }
+    /* Empty rows have no chip at all — only filled rows show a confident value */
+    .cl-item:not(.cl-done) .cl-hint { display: none; }
     .calc-btn {
       appearance: none; border: 0;
       background: #D97742; color: #FFF6EC;
@@ -1176,7 +1178,7 @@
   </div>
 </div>
 
-<script src="app.js?v=22"></script>
+<script src="app.js?v=23"></script>
 <div id="infoTooltip"></div>
 </body>
 </html>

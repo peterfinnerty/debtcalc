@@ -1196,15 +1196,17 @@ function run() {
   // Update hint chips
   const hintBudget = document.getElementById('hintBudget');
   const hintDebts  = document.getElementById('hintDebts');
-  if (hintBudget) {
+  if (hintBudget && monthlyBudget > 0) {
     let budgetLabel;
-    if (monthlyBudget <= 0)          budgetLabel = '$0 / mo';
-    else if (monthlyBudget < 1000)   budgetLabel = '$' + monthlyBudget + ' / mo';
+    if (monthlyBudget < 1000)         budgetLabel = '$' + monthlyBudget + ' / mo';
     else if (monthlyBudget < 1000000) budgetLabel = '$' + Math.floor(monthlyBudget / 1000) + 'k / mo';
-    else                             budgetLabel = '$' + Math.floor(monthlyBudget / 1000000) + 'M / mo';
+    else                              budgetLabel = '$' + Math.floor(monthlyBudget / 1000000) + 'M / mo';
     hintBudget.textContent = budgetLabel;
   }
-  if (hintDebts) hintDebts.textContent = valid.length === 0 ? '0 added' : valid.length + ' added';
+  if (hintDebts && valid.length > 0) {
+    const totalBal = valid.reduce((s, d) => s + d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0), 0);
+    hintDebts.textContent = valid.length + ' added · ' + fmt(totalBal);
+  }
 
   // Show/hide the first-run CTA button
   const calcBtn = document.getElementById('calcBtn');
