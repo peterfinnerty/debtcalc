@@ -898,7 +898,7 @@
   </div>
   <h1>To Zero <span>— debt payoff calculator</span></h1>
   <div class="header-nav">
-    <a href="/how-it-works.html" class="header-how" onclick="sessionStorage.setItem('calcUrl', location.href)">How does this work?</a>
+    <a href="/how-it-works.html" class="header-how" onclick="(typeof encodeUrl==='function'&&encodeUrl());sessionStorage.setItem('calcUrl',location.href)">How does this work?</a>
     <button class="header-share" id="headerShareBtn">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
         <path d="M9.5 1.5L12.5 4.5L9.5 7.5M12.5 4.5H5C3.6 4.5 2.5 5.6 2.5 7v5.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1100,9 +1100,9 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <a href="privacy.html" onclick="sessionStorage.setItem('calcUrl', location.href)">Privacy Policy</a>
+      <a href="privacy.html" onclick="(typeof encodeUrl==='function'&&encodeUrl());sessionStorage.setItem('calcUrl',location.href)">Privacy Policy</a>
       <span class="footer-sep">·</span>
-      <a href="terms.html" onclick="sessionStorage.setItem('calcUrl', location.href)">Terms of Service</a>
+      <a href="terms.html" onclick="(typeof encodeUrl==='function'&&encodeUrl());sessionStorage.setItem('calcUrl',location.href)">Terms of Service</a>
       <span class="footer-sep">·</span>
       <a href="#" data-tally-open="J98LA7" data-tally-emoji-text="👋" data-tally-emoji-animation="wave">Give me feedback</a>
     </footer>
@@ -1110,7 +1110,7 @@
   </div>
 </div>
 
-<script src="app.js?v=14"></script>
+<script src="app.js?v=15"></script>
 <div id="infoTooltip"></div>
 </body>
 </html>
