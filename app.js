@@ -23,6 +23,16 @@ let previewFreq    = 'monthly';
 let previewHistory = null;
 let baselineHistory = null;
 let baselineResult  = null;
+let baselineAv      = null; // baseline (no extras) under avalanche order
+let baselineSb      = null; // baseline (no extras) under snowball order
+
+// Pick the cached strategy result that matches the user's current selection.
+const activeResult   = () => activeTab === 'avalanche' ? lastAv : lastSb;
+const activeBaseline = () => activeTab === 'avalanche' ? baselineAv : baselineSb;
+function syncBaselineToActive() {
+  baselineResult  = activeBaseline();
+  baselineHistory = baselineResult ? baselineResult.history : null;
+}
 let showOriginalSchedule = false;
 let origScheduleRestored = false;
 let revealTimer = null;
@@ -653,9 +663,10 @@ function updateSavingsCallout() {
   const el = document.getElementById('savingsCallout');
   if (!el) return;
   const modalOpen = document.getElementById('extraModal').classList.contains('open');
-  if (!baselineResult || !lastAv || modalOpen) { el.style.display = 'none'; return; }
-  const monthsFaster = baselineResult.months - lastAv.months;
-  const interestSaved = baselineResult.interest - lastAv.interest;
+  const r = activeResult();
+  if (!baselineResult || !r || modalOpen) { el.style.display = 'none'; return; }
+  const monthsFaster = baselineResult.months - r.months;
+  const interestSaved = baselineResult.interest - r.interest;
   // Hide if there's nothing meaningful to celebrate
   if (monthsFaster <= 0 && interestSaved < 1) { el.style.display = 'none'; return; }
   document.getElementById('savingsMonths').textContent = monthsLabel(monthsFaster) + ' sooner';
@@ -1102,13 +1113,14 @@ function updatePreview() {
     optimal: eb.optimal + monthlyAmt,
     oneTime: (eb.oneTime || 0) + (isOneTime ? previewAmount : 0),
     targeted: eb.targeted,
-  }, 'avalanche', monthlyBudget);
+  }, activeTab, monthlyBudget);
   previewHistory = pr ? pr.history : null;
 
-  // Insight inside modal
-  if (pr && lastAv) {
-    const diffMo  = lastAv.months - pr.months;
-    const diffInt = lastAv.interest - pr.interest;
+  // Insight inside modal — compare against the user's currently selected strategy
+  const baselineForPreview = activeResult();
+  if (pr && baselineForPreview) {
+    const diffMo  = baselineForPreview.months - pr.months;
+    const diffInt = baselineForPreview.interest - pr.interest;
     const modal = document.getElementById('extraModal');
     if (diffMo > 0 || diffInt > 0.5) {
       const parts = [];
@@ -1152,9 +1164,12 @@ function setTab(tab) {
   document.getElementById('tabSb').className = 'tab-btn' + (tab === 'snowball'  ? ' is-active' : '');
   document.getElementById('tabThumb')?.classList.toggle('is-right', tab === 'snowball');
   encodeUrl(); // persist strategy to hash so amortization link stays in sync
+  // The baseline (no-extras) and savings comparison should follow the active strategy
+  syncBaselineToActive();
   renderSummary();
   renderBreakdown();
   renderPayoffTimeline();
+  updateSavingsCallout();
   // Recolor the chart's Planned line + the bottom legend dot to match the new strategy
   if (lastAv && lastSb) drawChart(lastAv, lastSb, lastIdentical);
 }
@@ -1288,10 +1303,12 @@ function run() {
     lastAv = simulate(valid, eb, 'avalanche', monthlyBudget);
     lastSb = simulate(valid, eb, 'snowball',  monthlyBudget);
     const hasExtras = eb.optimal > 0 || eb.oneTime > 0 || eb.targeted.length > 0;
-    baselineResult  = hasExtras ? simulate(valid, { optimal: 0, oneTime: 0, targeted: [] }, 'avalanche', monthlyBudget) : null;
-    baselineHistory = baselineResult ? baselineResult.history : null;
+    const blank = { optimal: 0, oneTime: 0, targeted: [] };
+    baselineAv = hasExtras ? simulate(valid, blank, 'avalanche', monthlyBudget) : null;
+    baselineSb = hasExtras ? simulate(valid, blank, 'snowball',  monthlyBudget) : null;
     lastSimKey = simKey;
   }
+  syncBaselineToActive();
   if (!lastAv || !lastSb) return;
 
   // When the two strategies yield the same result, hide the selector entirely
