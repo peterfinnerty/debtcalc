@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How it works — To Zero</title>
+  <meta name="description" content="Learn how To Zero calculates your debt payoff plan using the avalanche and snowball strategies.">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <script data-goatcounter="https://ppprojects.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #faf7f2;
+      --surface:    #ffffff;
+      --surface2:   #f5f0e8;
+      --border:     #e8e0d0;
+      --text:       #2d2620;
+      --text-muted: #7a6e65;
+      --green:      #5a8a6a;
+      --green-light:#e8f2eb;
+      --amber:      #c4824a;
+      --amber-light:#fdf0e6;
+      --blue:       #4a7a9b;
+      --blue-light: #e6f0f8;
+      --radius:     14px;
+      --radius-sm:  8px;
+      --shadow:     0 2px 16px rgba(45,38,32,0.08);
+      --shadow-sm:  0 1px 6px rgba(45,38,32,0.06);
+      --transition: 0.25s ease;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* Header */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .logo-mark {
+      width: 34px; height: 34px;
+      background: linear-gradient(135deg, var(--green) 0%, #3d6b50 100%);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .logo-mark svg { width: 18px; height: 18px; }
+    header h1 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; }
+    header h1 span { color: var(--text-muted); font-weight: 400; }
+
+    .header-nav {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .btn-back {
+      padding: 8px 16px; border-radius: 99px;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.85rem; font-weight: 500; cursor: pointer;
+      text-decoration: none;
+      display: flex; align-items: center; gap: 6px;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .btn-back:hover { border-color: var(--text-muted); color: var(--text); }
+
+    /* Page layout */
+    .page {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    /* Back link row */
+    .back-row {
+      margin-bottom: 32px;
+    }
+
+    /* Disclaimer */
+    .disclaimer {
+      background: var(--amber-light);
+      border: 1px solid #f0d0b0;
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      margin-bottom: 40px;
+      font-size: 0.875rem;
+      color: #5a3a18;
+      line-height: 1.6;
+    }
+    .disclaimer-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--amber);
+      margin-bottom: 6px;
+    }
+    .disclaimer a { color: var(--amber); font-weight: 600; }
+    .disclaimer a:hover { text-decoration: underline; }
+
+    /* Section */
+    .section {
+      margin-bottom: 32px;
+    }
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+    .section-intro {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 20px;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 12px;
+    }
+    .card-eyebrow {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--green);
+      margin-bottom: 6px;
+    }
+    .card h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .card p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+    .card p + p {
+      margin-top: 8px;
+    }
+
+    /* Step cards with number */
+    .step-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 12px;
+      display: flex;
+      gap: 18px;
+    }
+    .step-num {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--green-light);
+      color: var(--green);
+      font-size: 0.85rem;
+      font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .step-body h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .step-body p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+    .step-body p + p { margin-top: 8px; }
+
+    /* Strategy pair */
+    .strategy-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 14px 0;
+    }
+    .strategy-card {
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+    }
+    .strategy-card.avalanche {
+      background: var(--amber-light);
+      border: 1px solid #f0d0b0;
+    }
+    .strategy-card.snowball {
+      background: var(--blue-light);
+      border: 1px solid #c0d4e8;
+    }
+    .strategy-card .strategy-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+    .strategy-card.avalanche .strategy-label { color: var(--amber); }
+    .strategy-card.snowball .strategy-label { color: var(--blue); }
+    .strategy-card p {
+      font-size: 0.85rem;
+      line-height: 1.55;
+      color: var(--text);
+    }
+    .strategy-summary {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-style: italic;
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    /* Other things grid */
+    .others-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .other-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      box-shadow: var(--shadow-sm);
+    }
+    .other-card h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .other-card p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+
+    /* Privacy card */
+    .privacy-card {
+      background: var(--green-light);
+      border: 1px solid rgba(90,138,106,0.25);
+    }
+    .privacy-card h3 { color: var(--green); }
+
+    /* Bottom back link */
+    .bottom-nav {
+      margin-top: 48px;
+      text-align: center;
+    }
+    .btn-back-lg {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 24px; border-radius: 99px;
+      background: var(--green); color: white;
+      font-size: 0.9rem; font-weight: 600;
+      text-decoration: none;
+      transition: all var(--transition);
+    }
+    .btn-back-lg:hover { background: #4a7a5a; transform: translateY(-1px); box-shadow: 0 3px 10px rgba(90,138,106,0.3); }
+
+    /* Divider between major sections */
+    .section-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 40px 0;
+    }
+
+    @media (max-width: 600px) {
+      header { padding: 14px 16px; }
+      .page { padding: 28px 16px 60px; }
+      .strategy-pair { grid-template-columns: 1fr; }
+      .step-card { flex-direction: column; gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">
+    <svg viewBox="0 0 18 18" fill="none">
+      <path d="M2 7 L5 5 L8 9 L11 6 L15 14" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="15" cy="14" r="2" fill="white" opacity="0.65"/>
+    </svg>
+  </div>
+  <h1>To Zero <span>— debt payoff calculator</span></h1>
+  <div class="header-nav">
+    <a href="/" class="btn-back">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M7.5 1.5L3 6l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Back to the calculator
+    </a>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- Disclaimer -->
+  <div class="disclaimer">
+    <div class="disclaimer-label">Heads up</div>
+    To Zero is an educational calculator, not a financial advisor. The numbers and strategies shown are based on the information you enter and standard debt payoff math. They are not meant to replace personalized advice from a licensed financial professional. If you'd like to speak with a free or low-cost advisor, the <a href="https://www.nfcc.org" target="_blank" rel="noopener">National Foundation for Credit Counseling</a> can help.
+  </div>
+
+  <!-- How it works -->
+  <div class="section">
+    <div class="section-title">How it works</div>
+    <p class="section-intro">You enter your debts and one number: how much you can put toward debt each month in total. We figure out the smartest way to split it.</p>
+
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Minimums first</h3>
+        <p>Every debt gets its minimum payment before anything else. Credit card minimums recalculate every month as your balance drops. Loan minimums cover at least the interest so your balance never grows.</p>
+        <p>If your monthly commitment doesn't cover all the minimums, we'll tell you how much more you need.</p>
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>Surplus goes to your priority debt</h3>
+        <p>Whatever's left after minimums gets directed to one debt at a time. This is where your strategy choice matters.</p>
+        <div class="strategy-pair">
+          <div class="strategy-card avalanche">
+            <div class="strategy-label">Avalanche</div>
+            <p>Puts it toward your highest interest rate first. Mathematically optimal, saves the most money.</p>
+          </div>
+          <div class="strategy-card snowball">
+            <div class="strategy-label">Snowball</div>
+            <p>Puts it toward your smallest balance first. Faster early wins, easier to stay motivated.</p>
+          </div>
+        </div>
+        <p class="strategy-summary">Avalanche saves more money. Snowball gets you quick wins.</p>
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Paid-off payments roll forward</h3>
+        <p>When a debt is gone, its payment doesn't disappear. It gets added to the next debt. Same monthly total, fewer debts. This is why payoff speeds up toward the end.</p>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- Other things to know -->
+  <div class="section">
+    <div class="section-title">Other things to know</div>
+
+    <div class="others-grid">
+      <div class="other-card">
+        <h3>Past due always goes first</h3>
+        <p>Past due debts jump to the front of the line regardless of strategy. Getting current matters more than optimizing.</p>
+      </div>
+
+      <div class="other-card">
+        <h3>Extra payments</h3>
+        <p>Your monthly commitment is your baseline. Extra payments go on top: a bonus, a tax refund, a good month. That money hits your priority debt immediately and doesn't change your regular commitment.</p>
+      </div>
+
+      <div class="other-card">
+        <h3>Why your numbers might differ slightly</h3>
+        <p>We calculate interest monthly. Real credit card interest accrues daily, so your actual payoff date might shift by a month or two. Treat this as a close estimate, not a guarantee.</p>
+      </div>
+
+      <div class="other-card">
+        <h3>Your data never leaves your browser</h3>
+        <p>Everything stays on your device. Your plan lives in the URL. That's how sharing works and that's all we keep.</p>
+      </div>
+    </div>
+  </div>
+
+
+</div>
+
+</body>
+</html>

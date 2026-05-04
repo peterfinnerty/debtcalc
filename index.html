@@ -85,7 +85,6 @@
     header h1 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; }
     header h1 span { color: var(--text-muted); font-weight: 400; }
     .header-share {
-      margin-left: auto;
       padding: 8px 18px; border-radius: 99px;
       background: var(--green); color: white; border: none;
       font-size: 0.85rem; font-weight: 600; cursor: pointer;
@@ -94,6 +93,15 @@
     }
     .header-share:hover { background: #4a7a5a; transform: translateY(-1px); box-shadow: 0 3px 10px rgba(90,138,106,0.3); }
     .header-share.copied { background: #3d6b50; }
+    .header-how {
+      margin-left: auto;
+      padding: 8px 16px; border-radius: 99px;
+      background: var(--surface2); border: none;
+      color: var(--text-muted); font-size: 0.85rem; font-weight: 600;
+      text-decoration: none; white-space: nowrap; flex-shrink: 0;
+      transition: all var(--transition);
+    }
+    .header-how:hover { background: var(--border); color: var(--text); transform: translateY(-1px); box-shadow: 0 3px 10px rgba(45,38,32,0.1); }
     .share-toast {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(12px);
       background: var(--text); color: white; font-size: 0.8rem; padding: 10px 18px;
@@ -331,13 +339,13 @@
     .extra-card-label { font-size: 0.72rem; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: 0.06em; }
     .btn-add-extra {
       width: 100%; padding: 10px;
-      background: none; border: 1px solid var(--border);
+      background: none; border: 1px solid #c0dcc8;
       border-radius: var(--radius);
-      color: var(--text-muted); font-size: 0.875rem;
+      color: var(--green); font-size: 0.875rem;
       cursor: pointer; transition: all var(--transition);
       display: flex; align-items: center; justify-content: center; gap: 6px;
     }
-    .btn-add-extra:hover { border-color: var(--green); color: var(--green); background: var(--green-light); }
+    .btn-add-extra:hover { border-color: var(--green); background: var(--green-light); }
 
     /* Select inputs */
     select {
@@ -375,7 +383,7 @@
     /* Empty state */
     .empty-state {
       flex: 1; display: flex; align-items: center; justify-content: center;
-      flex-direction: column; gap: 16px; padding: 60px 24px;
+      flex-direction: column; gap: 20px; padding: 60px 24px;
       text-align: center;
     }
     .empty-icon {
@@ -383,8 +391,27 @@
       border-radius: 50%; display: flex; align-items: center; justify-content: center;
       font-size: 1.8rem;
     }
-    .empty-state h2 { font-size: 1.1rem; font-weight: 600; }
-    .empty-state p { font-size: 0.875rem; color: var(--text-muted); max-width: 280px; line-height: 1.55; }
+    .empty-state h2 { font-size: 1.05rem; font-weight: 600; }
+    .empty-checklist {
+      display: flex; flex-direction: column; gap: 12px;
+      text-align: left;
+    }
+    .empty-check-item {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 0.875rem; color: var(--text);
+      transition: color var(--transition);
+    }
+    .empty-check-item.done { color: var(--text-muted); text-decoration: line-through; }
+    .check-circle {
+      width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+      border: 1.5px solid var(--text);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.72rem; font-weight: 700;
+      transition: all var(--transition);
+    }
+    .empty-check-item.done .check-circle {
+      border-color: var(--text-muted); color: var(--text-muted);
+    }
 
     /* Chart card */
     .chart-card {
@@ -717,6 +744,7 @@
     </svg>
   </div>
   <h1>To Zero <span>— debt payoff calculator</span></h1>
+  <a href="/how-it-works.html" class="header-how">How does this work?</a>
   <button class="header-share" id="headerShareBtn">
     <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
       <path d="M9.5 1.5L12.5 4.5L9.5 7.5M12.5 4.5H5C3.6 4.5 2.5 5.6 2.5 7v5.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -765,8 +793,17 @@
 
     <div class="empty-state" id="emptyState">
       <div class="empty-icon">&#128176;</div>
-      <h2 id="emptyHeading">Add your first debt to get started</h2>
-      <p id="emptyText">Add your debts and monthly budget, and we'll show you exactly when you'll be free of it. Your data never leaves your browser.</p>
+      <h2>Add your details to get started</h2>
+      <div class="empty-checklist">
+        <div class="empty-check-item" id="checkBudget">
+          <div class="check-circle">1</div>
+          The amount you can commit to debt repayment each month
+        </div>
+        <div class="empty-check-item" id="checkDebts">
+          <div class="check-circle">2</div>
+          All of your debts and their balances
+        </div>
+      </div>
     </div>
 
     <div id="results" style="display:none">

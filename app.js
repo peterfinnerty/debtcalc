@@ -1048,21 +1048,14 @@ function run() {
   const hasData = valid.length > 0 && monthlyBudget > 0;
   refreshExtraTargets();
 
-  // Update empty state messaging based on what's missing
+  // Update empty state checklist dynamically
   const emptyEl = document.getElementById('emptyState');
-  const headingEl = document.getElementById('emptyHeading');
-  const textEl = document.getElementById('emptyText');
+  document.getElementById('checkBudget')?.classList.toggle('done', monthlyBudget > 0);
+  document.getElementById('checkDebts')?.classList.toggle('done', valid.length > 0);
 
   if (!hasData) {
     emptyEl.style.display = 'flex';
     document.getElementById('results').style.display = 'none';
-    if (valid.length > 0 && monthlyBudget <= 0) {
-      if (headingEl) headingEl.textContent = 'Enter your monthly budget to see results';
-      if (textEl) textEl.textContent = 'Fill in "What I can put toward debt each month" above to see exactly when you\'ll be debt free.';
-    } else {
-      if (headingEl) headingEl.textContent = 'Add your first debt to get started';
-      if (textEl) textEl.textContent = 'Add your debts and monthly budget, and we\'ll show you exactly when you\'ll be free of it. Your data never leaves your browser.';
-    }
     return;
   }
 
