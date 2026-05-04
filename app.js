@@ -744,7 +744,7 @@ const verticalGuidePlugin = {
   id: 'verticalGuide',
   afterDatasetsDraw(chart) {
     const tt = chart.tooltip;
-    if (!tt || tt.opacity === 0 || !tt.dataPoints || !tt.dataPoints.length) return;
+    if (!tt || tt.opacity === 0 || !tt.dataPoints || tt.dataPoints.length < 2) return;
     const ctx = chart.ctx;
     const x = tt.caretX;
     const { top, bottom } = chart.scales.y;
