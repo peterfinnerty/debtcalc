@@ -669,14 +669,24 @@
       font-size: 0.75rem; color: var(--text-muted);
     }
     .savings-callout {
-      position: absolute; top: 16px; right: 12px;
-      background: var(--green-light); border: 1.5px solid rgba(90,138,106,0.2);
-      border-radius: 10px; padding: 10px 14px;
-      pointer-events: none;
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--green);
+      font-size: 0.78rem;
+      white-space: nowrap;
+      position: absolute;
+      left: 50%; top: 14px;
+      transform: translateX(-50%);
     }
-    .savings-hdr { font-size: 0.82rem; font-weight: 600; color: var(--green); margin-bottom: 3px; }
-    .savings-row { display: flex; align-items: baseline; gap: 4px; line-height: 1.4; font-size: 0.82rem; color: var(--green); opacity: 0.85; }
-    .savings-val { font-size: 0.82rem; font-weight: 400; color: var(--green); }
+    .savings-callout .sc-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green); flex-shrink: 0;
+    }
+    .savings-callout .sc-label {
+      font-size: 0.62rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+    .savings-callout .sc-val { font-weight: 500; }
+    .savings-callout .sc-sep { color: var(--green); opacity: 0.45; }
 
     /* Monthly budget card */
     .budget-card {
@@ -1070,6 +1080,13 @@
             <div class="chart-title">Your path to zero</div>
             <div class="chart-subtitle" id="chartSubtitle">Total balance over time</div>
           </div>
+          <div class="savings-callout" id="savingsCallout" style="display:none">
+            <span class="sc-dot"></span>
+            <span class="sc-label">With extra</span>
+            <span class="sc-val" id="savingsMonths"></span>
+            <span class="sc-sep">·</span>
+            <span class="sc-val" id="savingsInterest"></span>
+          </div>
           <div class="chart-header-right">
             <div class="chart-legend" id="chartLegend">
               <div class="legend-item" id="avLegendItem">
@@ -1117,11 +1134,6 @@
         <div class="chart-wrap">
           <canvas id="payoffChart"></canvas>
           <div class="chart-tooltip" id="chartTooltip" style="opacity:0"></div>
-          <div class="savings-callout" id="savingsCallout" style="display:none">
-            <div class="savings-hdr">Paying extra saves:</div>
-            <div class="savings-row">· <span class="savings-val" id="savingsMonths"></span></div>
-            <div class="savings-row">· <span class="savings-val" id="savingsInterest"></span></div>
-          </div>
         </div>
         <div class="chart-line-legend" id="chartLineLegend" style="display:none">
           <span class="cll-item"><svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="#c4824a"/></svg> Planned</span>
@@ -1178,7 +1190,7 @@
   </div>
 </div>
 
-<script src="app.js?v=23"></script>
+<script src="app.js?v=27"></script>
 <div id="infoTooltip"></div>
 </body>
 </html>

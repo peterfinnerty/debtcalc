@@ -655,8 +655,10 @@ function updateSavingsCallout() {
   if (!baselineResult || !lastAv || modalOpen) { el.style.display = 'none'; return; }
   const monthsFaster = baselineResult.months - lastAv.months;
   const interestSaved = baselineResult.interest - lastAv.interest;
-  document.getElementById('savingsMonths').textContent = monthsLabel(monthsFaster);
-  document.getElementById('savingsInterest').textContent = fmt(interestSaved) + ' in interest';
+  // Hide if there's nothing meaningful to celebrate
+  if (monthsFaster <= 0 && interestSaved < 1) { el.style.display = 'none'; return; }
+  document.getElementById('savingsMonths').textContent = monthsLabel(monthsFaster) + ' sooner';
+  document.getElementById('savingsInterest').textContent = fmt(interestSaved) + ' less interest';
   el.style.display = '';
 }
 
