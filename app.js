@@ -25,6 +25,9 @@ let baselineHistory = null;
 let baselineResult  = null;
 let showOriginalSchedule = false;
 let origScheduleRestored = false;
+let revealTimer = null;
+let hasEverRevealed = false;
+let isFirstRun = true;
 
 const FREQ = {
   daily:       { label: 'Daily',          mult: 365 / 12 },
@@ -102,13 +105,14 @@ function makeCard(id) {
           </div>
         </div>
         <div class="field" id="aprField-${id}">
-          <label>Interest rate</label>
+          <label>APR</label>
           <div class="input-wrap has-suffix">
-            <input type="number" placeholder="19.9" data-field="apr" data-id="${id}" min="0" max="100" step="0.1">
+            <input type="text" inputmode="decimal" placeholder="19.9" data-field="apr" data-id="${id}">
             <span class="input-suffix">%</span>
           </div>
         </div>
       </div>
+      <div id="balanceError-${id}" style="display:none;font-size:12px;color:#b85c2a;margin-top:4px">Please enter a number from 1–10,000,000</div>
       <div class="debt-callout" id="callout-${id}"></div>
       <div class="past-due-section">
         <label class="past-due-toggle-label">
@@ -132,7 +136,7 @@ function makeCard(id) {
         </div>
       </div>
       <div id="bottomFields-${id}"></div>
-      <div class="debt-hint" id="debtHint-${id}">Enter a balance to include this debt</div>
+      <div class="debt-hint" id="debtHint-${id}">Enter all details to include this debt</div>
     </div>`;
   return el;
 }
@@ -147,9 +151,8 @@ function onTypeChange(id) {
   const newType = sel?.value || 'credit_card';
   debt.debtType = newType;
 
-  // 'other' defaults to 0% APR
   if (newType === 'other') {
-    debt.apr = 0;
+    debt.apr = null;
     const aprEl = document.querySelector(`[data-field="apr"][data-id="${id}"]`);
     if (aprEl) aprEl.value = '';
   }
@@ -263,7 +266,7 @@ function addDebt(pre = {}) {
     id,
     name:          pre.name || '',
     balance:       +pre.balance || 0,
-    apr:           +pre.apr || 0,
+    apr:           (pre.apr !== undefined && pre.apr !== null) ? +pre.apr : null,
     debtType:      dt,
     loanType:      pre.loanType || 'federal',
     pastDue:       !!pre.pastDue,
@@ -285,7 +288,7 @@ function addDebt(pre = {}) {
 
   updateCardForType(id, dt);
 
-  if (pre.apr) { const a = card.querySelector('[data-field="apr"]'); if (a && !a.disabled) a.value = pre.apr; }
+  if (pre.apr != null) { const a = card.querySelector('[data-field="apr"]'); if (a && !a.disabled) a.value = pre.apr; }
 
   // Restore past due state
   if (pre.pastDue) {
@@ -302,6 +305,10 @@ function addDebt(pre = {}) {
       if (pda) pda.value = normalizeDollarInput(pre.pastDueAmount);
     }
   }
+
+  // Show hint immediately without waiting for run()
+  const hintEl = document.getElementById('debtHint-' + id);
+  if (hintEl) hintEl.style.display = (debt.balance <= 0 || debt.apr === null) ? 'block' : 'none';
 
   renumber();
   bump();
@@ -327,7 +334,7 @@ function updateDebtSummary(id) {
   const nameEl = document.getElementById('summaryName-' + id);
   const balEl  = document.getElementById('summaryBal-' + id);
   if (!nameEl) return;
-  nameEl.textContent = debt.name || 'Unnamed';
+  nameEl.textContent = debt.name || 'Debt ' + (debts.indexOf(debt) + 1);
   balEl.textContent  = debt.balance ? fmt(debt.balance) : '';
 }
 
@@ -382,10 +389,22 @@ document.getElementById('debtsList').addEventListener('input', e => {
     el.value = normalizeDollarInput(el.value);
     const newLen = el.value.length;
     try { el.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen)); } catch(_) {}
-    debt[field] = parseInt(el.value.replace(/,/g, ''), 10) || 0;
+    const parsed = parseInt(el.value.replace(/,/g, ''), 10) || 0;
+    if (field === 'balance') {
+      const errEl = document.getElementById('balanceError-' + id);
+      if (parsed > 10000000) {
+        el.value = el._lastValidBalance || '';
+        if (errEl) errEl.style.display = 'block';
+        return;
+      }
+      el._lastValidBalance = el.value;
+      if (errEl) errEl.style.display = 'none';
+    }
+    debt[field] = parsed;
     if (field === 'balance') updateDebtSummary(id);
   } else if (field === 'apr') {
-    debt.apr = parseFloat(el.value) || 0;
+    el.value = normalizeAprInput(el.value);
+    debt.apr = el.value.trim() !== '' ? (parseFloat(el.value) || 0) : null;
   } else {
     debt[field] = parseFloat(el.value) || 0;
   }
@@ -418,6 +437,7 @@ document.getElementById('debtsList').addEventListener('click', e => {
 });
 
 // Monthly budget input
+let _lastValidBudget = '';
 document.getElementById('monthlyBudgetInput').addEventListener('input', e => {
   const el = e.target;
   const pos = el.selectionStart;
@@ -425,8 +445,17 @@ document.getElementById('monthlyBudgetInput').addEventListener('input', e => {
   el.value = normalizeDollarInput(el.value);
   const newLen = el.value.length;
   try { el.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen)); } catch(_) {}
-  monthlyBudget = parseInt(el.value.replace(/,/g, ''), 10) || 0;
-  bump();
+  const parsed = parseInt(el.value.replace(/,/g, ''), 10) || 0;
+  const errEl = document.getElementById('budgetError');
+  if (parsed > 999999) {
+    el.value = _lastValidBudget;
+    if (errEl) errEl.style.display = 'block';
+  } else {
+    _lastValidBudget = el.value;
+    if (errEl) errEl.style.display = 'none';
+    monthlyBudget = parsed;
+    bump();
+  }
 });
 
 // Extra payment cards
@@ -840,12 +869,12 @@ function renderBreakdown() {
       ? `<span class="priority-badge overdue">Paying ${posLabel} · past due</span>`
       : '';
     const extraLabels = extraByDebt[String(d.id)] || [];
-    const extraBadge  = extraLabels.map(l =>
-      `<span class="extra-badge">${l}</span>`
-    ).join('');
     const floor = floorById[d.id] || 0;
     const surplus = d.payment - floor;
     const isMinOnly = surplus <= 1;
+    const extraBadge  = (!isMinOnly) ? extraLabels.map(l =>
+      `<span class="extra-badge">${l}</span>`
+    ).join('') : '';
     const minBadge = isMinOnly ? `<span class="min-badge">Min. payment</span>` : '';
     const surplusBadge = (surplus > 1 && extraLabels.length === 0)
       ? `<span class="extra-badge">+${fmtDec(surplus)}/mo extra</span>`
@@ -860,7 +889,7 @@ function renderBreakdown() {
     return `
       <div class="breakdown-row">
         <div class="breakdown-name">
-          <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-height:1.4em">${escHtml(d.name) || 'Unnamed debt'}${badge}${minBadge}${surplusBadge}${extraBadge}</div>
+          <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-height:1.4em">${escHtml(d.name) || 'Debt ' + (debts.findIndex(x => x.id === d.id) + 1 || '')}${badge}${minBadge}${surplusBadge}${extraBadge}</div>
           <small>${d.apr.toFixed(1)}% APR &middot; ${fmt(d.balance)} balance</small>
         </div>
         <div class="breakdown-right">
@@ -890,8 +919,8 @@ function renderWarnings(valid, sim) {
   const htmlItems = raw.map(w => {
     if (w.type === 'budget-too-low') {
       const msg = w.hasPastDue
-        ? `Your budget may not be enough to cover minimums and catch up on past due balances. You need at least <strong>${fmt(w.minNeeded)}/mo</strong>.`
-        : `Your budget doesn't cover the minimum payments on all your debts. You need at least <strong>${fmt(w.minNeeded)}/mo</strong> to avoid falling behind.`;
+        ? `Your monthly commitment may not be enough to cover minimums and catch up on past due balances. You need at least <strong>${fmt(w.minNeeded)}/mo</strong>.`
+        : `Your monthly commitment doesn't cover the minimum payments on all your debts. You need at least <strong>${fmt(w.minNeeded)}/mo</strong> to avoid falling behind.`;
       return `<div class="warning-item danger" style="display:flex;align-items:flex-start;gap:8px">${dangerIcon}<span>${msg}</span></div>`;
     }
     if (w.type === 'no-payoff') {
@@ -922,7 +951,7 @@ function renderPayoffTimeline() {
     return `
       <div class="payoff-row">
         <div class="payoff-dot" style="background:${col}"></div>
-        <div class="payoff-name">${escHtml(d.name) || 'Unnamed debt'}</div>
+        <div class="payoff-name">${escHtml(d.name) || 'Debt ' + (debts.findIndex(x => x.id === d.id) + 1 || '')}</div>
         <div class="payoff-date"><strong>${monthsLabel(d.month)}</strong> from now · ${monthsToDate(d.month)}</div>
       </div>`;
   }).join('');
@@ -977,6 +1006,7 @@ function updatePreview() {
   if (previewAmount <= 0) {
     previewHistory = null;
     insight.style.display = 'none';
+    document.getElementById('extraModal').classList.remove('has-insight');
     callout.style.display = 'none';
     drawChart(lastAv, lastSb, lastIdentical);
     return;
@@ -1043,37 +1073,116 @@ function setTab(tab) {
 // ==========================================================
 //  MAIN RUN
 // ==========================================================
+function renderRecoveryNotice(missing) {
+  const both = missing.length > 1;
+  const title = both ? 'Almost there —' : 'One thing missing';
+  const items = missing.map((m, i) =>
+    `<li class="recovery-item" style="animation-delay:${i * 80}ms">
+      <span class="recovery-dot"></span>
+      <span>${escHtml(m.label)}</span>
+    </li>`
+  ).join('');
+  return `<div class="recovery">
+    <div class="recovery-icon" aria-hidden="true">
+      <svg viewBox="0 0 32 32" width="32" height="32">
+        <circle cx="16" cy="16" r="13" fill="none" stroke="#C49A4F" stroke-width="1.6"/>
+        <path d="M16,9 L16,17" stroke="#C49A4F" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="16" cy="21" r="1.4" fill="#C49A4F"/>
+      </svg>
+    </div>
+    <div class="recovery-body">
+      <div class="recovery-title">${escHtml(title)}</div>
+      <ul class="recovery-list">${items}</ul>
+    </div>
+  </div>`;
+}
+
 function run() {
-  const valid = debts.filter(d => d.balance > 0);
+  const valid = debts.filter(d => d.balance > 0 && d.apr !== null);
   const hasData = valid.length > 0 && monthlyBudget > 0;
   refreshExtraTargets();
 
-  // Update empty state checklist dynamically
+  // Update animated checklist
   const emptyEl = document.getElementById('emptyState');
-  document.getElementById('checkBudget')?.classList.toggle('done', monthlyBudget > 0);
-  document.getElementById('checkDebts')?.classList.toggle('done', valid.length > 0);
+  const resultsEl = document.getElementById('results');
+  const recoveryBlock = document.getElementById('recoveryBlock');
+  document.getElementById('checkBudget')?.classList.toggle('cl-done', monthlyBudget > 0);
+  document.getElementById('checkDebts')?.classList.toggle('cl-done', valid.length > 0);
+
+  // Update hint chips
+  const hintBudget = document.getElementById('hintBudget');
+  const hintDebts  = document.getElementById('hintDebts');
+  if (hintBudget) {
+    let budgetLabel;
+    if (monthlyBudget <= 0)          budgetLabel = '$0 / mo';
+    else if (monthlyBudget < 1000)   budgetLabel = '$' + monthlyBudget + ' / mo';
+    else if (monthlyBudget < 1000000) budgetLabel = '$' + Math.floor(monthlyBudget / 1000) + 'k / mo';
+    else                             budgetLabel = '$' + Math.floor(monthlyBudget / 1000000) + 'M / mo';
+    hintBudget.textContent = budgetLabel;
+  }
+  if (hintDebts) hintDebts.textContent = valid.length === 0 ? '0 added' : valid.length + ' added';
+
+  // Show/hide the first-run CTA button
+  const calcBtn = document.getElementById('calcBtn');
+  if (calcBtn && !hasEverRevealed && !isFirstRun) {
+    calcBtn.style.display = hasData ? 'inline-flex' : 'none';
+  }
+
+  // Always update hints regardless of hasData
+  debts.forEach(d => {
+    const hintEl = document.getElementById('debtHint-' + d.id);
+    if (!hintEl) return;
+    hintEl.style.display = (d.balance <= 0 || d.apr === null) ? 'block' : 'none';
+  });
 
   if (!hasData) {
-    emptyEl.style.display = 'flex';
-    document.getElementById('results').style.display = 'none';
+    if (!hasEverRevealed) {
+      // Haven't revealed yet — retreat to empty state
+      clearTimeout(revealTimer);
+      emptyEl.classList.remove('is-leaving');
+      resultsEl.classList.remove('is-entering');
+      return;
+    }
+    // Already revealed — collapse results and show recovery notice so the
+    // right panel resizes back to its natural (empty-state) height.
+    const missing = [];
+    if (monthlyBudget <= 0) missing.push({ id: 'commit', label: 'Add a monthly commitment to see your plan.' });
+    if (valid.length === 0) missing.push({ id: 'debts', label: 'Add a balance and APR for at least one debt.' });
+
+    if (recoveryBlock) {
+      const key = missing.map(m => m.id).join(',');
+      if (recoveryBlock.dataset.key !== key) {
+        recoveryBlock.dataset.key = key;
+        recoveryBlock.innerHTML = renderRecoveryNotice(missing);
+      }
+      recoveryBlock.classList.add('is-shown');
+    }
+    resultsEl.classList.remove('is-entering');
     return;
   }
 
-  emptyEl.style.display = 'none';
-  document.getElementById('results').style.display = 'block';
+  // Data is valid — hide recovery, show chart
+  if (recoveryBlock) recoveryBlock.classList.remove('is-shown');
+
+  if (!hasEverRevealed) {
+    if (isFirstRun) {
+      // Page loaded with existing URL data — reveal immediately, no animation
+      emptyEl.classList.add('is-leaving');
+      resultsEl.classList.add('is-entering');
+      hasEverRevealed = true;
+    }
+    // Otherwise wait for the explicit "See my path to zero" button click
+  } else {
+    // Already revealed before (recovery → chart) — immediate
+    emptyEl.classList.add('is-leaving');
+    resultsEl.classList.add('is-entering');
+  }
 
   // Track first time results appear in this session
   if (!window._trackedDebtEntered) {
     window._trackedDebtEntered = true;
     trackEvent('debt-entered');
   }
-
-  // Show hint on cards that are missing a balance
-  debts.forEach(d => {
-    const hintEl = document.getElementById('debtHint-' + d.id);
-    if (!hintEl) return;
-    hintEl.style.display = d.balance <= 0 ? 'block' : 'none';
-  });
 
   const eb = extrasBreakdown();
   lastValid = valid;
@@ -1122,6 +1231,8 @@ function run() {
   // Debounce URL encoding — visual state doesn't need it immediately
   clearTimeout(encodeTimer);
   encodeTimer = setTimeout(encodeUrl, 500);
+
+  isFirstRun = false;
 }
 
 // ==========================================================
@@ -1148,6 +1259,8 @@ function encodeUrl() {
     const stratPart = activeTab === 'snowball' ? '&s=snowball' : '';
     const origPart  = showOriginalSchedule ? '&o=1' : '&o=0';
     history.replaceState(null, '', location.pathname + '#p=' + enc + stratPart + origPart);
+    const schedLink = document.getElementById('scheduleLink');
+    if (schedLink) schedLink.href = 'amortization.html' + location.hash;
   } catch (_) {}
 }
 
@@ -1354,5 +1467,27 @@ document.getElementById('emCommit').addEventListener('click', commitExtra);
 //  INIT
 // ==========================================================
 document.getElementById('addDebtBtn').addEventListener('click', () => addDebt());
-if (!decodeUrl()) addDebt();
+
+// First-run CTA
+let isCalculating = false;
+document.getElementById('calcBtn').addEventListener('click', () => {
+  if (isCalculating || hasEverRevealed) return;
+  isCalculating = true;
+  const btn = document.getElementById('calcBtn');
+  btn.disabled = true;
+  btn.classList.add('is-calculating');
+  btn.innerHTML = '<span class="calc-spinner" aria-hidden="true"></span><span>Calculating…</span>';
+  setTimeout(() => {
+    isCalculating = false;
+    btn.style.display = 'none';
+    const emptyEl = document.getElementById('emptyState');
+    const resultsEl = document.getElementById('results');
+    emptyEl.classList.add('is-leaving');
+    resultsEl.classList.add('is-entering');
+    hasEverRevealed = true;
+    run();
+  }, 450);
+});
+
+if (!decodeUrl()) { isFirstRun = false; addDebt(); }
 else run();

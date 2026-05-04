@@ -52,12 +52,10 @@
     }
     .logo-mark {
       width: 34px; height: 34px;
-      background: linear-gradient(135deg, var(--green) 0%, #3d6b50 100%);
-      border-radius: 9px;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
-    .logo-mark svg { width: 18px; height: 18px; }
+    .logo-mark svg { width: 22px; height: 22px; }
     header h1 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; }
     header h1 span { color: var(--text-muted); font-weight: 400; }
 
@@ -303,14 +301,14 @@
 
 <header>
   <div class="logo-mark">
-    <svg viewBox="0 0 18 18" fill="none">
-      <path d="M2 7 L5 5 L8 9 L11 6 L15 14" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="15" cy="14" r="2" fill="white" opacity="0.65"/>
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-label="To Zero">
+      <rect x="2" y="2" width="20" height="20" rx="5" fill="#2D4A3E"/>
+      <path d="M5,9 C8,12 11,8 14,13 C16,16 18,15 19,17" fill="none" stroke="#E8DCC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
   </div>
   <h1>To Zero <span>— debt payoff calculator</span></h1>
   <div class="header-nav">
-    <a href="/" class="btn-back">
+    <a href="/" class="btn-back" onclick="if(history.length>1){history.back();return false;}">
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
         <path d="M7.5 1.5L3 6l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>

@@ -26,7 +26,7 @@
   <meta name="twitter:image" content="https://tozero.app/og-image.png">
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" integrity="sha512-CQBWl4fJHWbryGE+Pc7UAxWMUMNMWzWxF4SQo9CgkJIN1kx6djDQZjh3Y8SZ1d+6I+1zze6Z7kHXO7q3UyZAWw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="simulation.js"></script>
+  <script src="simulation.js?v=4"></script>
   <!-- Tally popup embed -->
   <script async src="https://tally.so/widgets/embed.js"></script>
 
@@ -73,15 +73,16 @@
       display: flex;
       align-items: center;
       gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
     .logo-mark {
       width: 34px; height: 34px;
-      background: linear-gradient(135deg, var(--green) 0%, #3d6b50 100%);
-      border-radius: 9px;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
-    .logo-mark svg { width: 18px; height: 18px; }
+    .logo-mark svg { width: 22px; height: 22px; }
     header h1 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; }
     header h1 span { color: var(--text-muted); font-weight: 400; }
     .header-share {
@@ -93,15 +94,23 @@
     }
     .header-share:hover { background: #4a7a5a; transform: translateY(-1px); box-shadow: 0 3px 10px rgba(90,138,106,0.3); }
     .header-share.copied { background: #3d6b50; }
-    .header-how {
+    .header-nav {
       margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .header-how {
       padding: 8px 16px; border-radius: 99px;
-      background: var(--surface2); border: none;
-      color: var(--text-muted); font-size: 0.85rem; font-weight: 600;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted); font-size: 0.85rem; font-weight: 500;
       text-decoration: none; white-space: nowrap; flex-shrink: 0;
+      display: flex; align-items: center; gap: 6px;
       transition: all var(--transition);
     }
-    .header-how:hover { background: var(--border); color: var(--text); transform: translateY(-1px); box-shadow: 0 3px 10px rgba(45,38,32,0.1); }
+    .header-how:hover { border-color: var(--text-muted); color: var(--text); }
     .share-toast {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(12px);
       background: var(--text); color: white; font-size: 0.8rem; padding: 10px 18px;
@@ -306,6 +315,11 @@
       border-color: var(--green);
       box-shadow: 0 0 0 3px rgba(90,138,106,0.15);
     }
+    .debt-card input[type="text"]:focus, .debt-card input[type="number"]:focus,
+    .debt-card select:focus {
+      border-color: var(--amber);
+      box-shadow: 0 0 0 3px rgba(196,130,74,0.15);
+    }
     .has-prefix input { padding-left: 22px; }
     .has-suffix input { padding-right: 28px; }
 
@@ -378,39 +392,177 @@
       overflow-y: auto;
       padding: 28px 28px 40px;
       display: flex; flex-direction: column; gap: 24px;
+      position: relative;
     }
 
-    /* Empty state */
+    /* Empty state — crossfade out */
     .empty-state {
-      flex: 1; display: flex; align-items: center; justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       flex-direction: column; gap: 20px; padding: 60px 24px;
       text-align: center;
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      filter: blur(0);
+      transition: opacity 480ms cubic-bezier(.4,0,.2,1) 200ms,
+                  transform 600ms cubic-bezier(.4,0,.2,1) 200ms,
+                  filter 480ms ease 200ms;
     }
-    .empty-icon {
-      width: 64px; height: 64px; background: var(--surface2);
-      border-radius: 50%; display: flex; align-items: center; justify-content: center;
-      font-size: 1.8rem;
+    .empty-state.is-leaving {
+      opacity: 0;
+      transform: translateY(-12px) scale(0.985);
+      filter: blur(2px);
+      pointer-events: none;
     }
-    .empty-state h2 { font-size: 1.05rem; font-weight: 600; }
-    .empty-checklist {
-      display: flex; flex-direction: column; gap: 12px;
-      text-align: left;
+    .empty-card {
+      background: #FFFFFF;
+      border: 1px solid #E5DDCD;
+      border-radius: 14px;
+      padding: 40px 36px;
+      text-align: center;
+      width: 520px;
+      max-width: 100%;
     }
-    .empty-check-item {
-      display: flex; align-items: center; gap: 10px;
-      font-size: 0.875rem; color: var(--text);
-      transition: color var(--transition);
+    .empty-icon { display: flex; justify-content: center; margin-bottom: 14px; }
+    .empty-title { font-size: 18px; font-weight: 600; color: #1A1815; margin: 0 0 22px; }
+
+    /* Animated checklist */
+    .checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; text-align: left; }
+    .cl-item {
+      display: grid; grid-template-columns: 28px 1fr auto;
+      align-items: center; gap: 14px;
+      padding: 14px 8px;
+      position: relative;
+      transition: opacity 280ms ease;
     }
-    .empty-check-item.done { color: var(--text-muted); text-decoration: line-through; }
-    .check-circle {
-      width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
-      border: 1.5px solid var(--text);
+    .cl-item + .cl-item::before {
+      content: "";
+      position: absolute;
+      left: 0; right: 0; top: 0;
+      border-top: 1px solid #EFE7D5;
+    }
+    .cl-done { opacity: 0.55; }
+    .cl-done .cl-label { color: #8A8377; }
+    .cl-done .cl-num   { color: #D97742; }
+    .cl-num-wrap { position: relative; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; }
+    .cl-num { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; color: #4D483E; transition: color 240ms ease, transform 200ms cubic-bezier(.34,1.6,.64,1); }
+    .cl-done .cl-num { animation: cl-num-pop 420ms cubic-bezier(.34,1.7,.64,1); }
+    @keyframes cl-num-pop {
+      0%   { transform: scale(1)    rotate(0); }
+      35%  { transform: scale(1.25) rotate(-6deg); }
+      65%  { transform: scale(0.94) rotate(4deg); }
+      100% { transform: scale(1.05) rotate(0); }
+    }
+    .cl-label-wrap { position: relative; display: inline-block; justify-self: start; width: max-content; max-width: 100%; }
+    .cl-label { font-size: 14.5px; color: #1A1815; font-weight: 450; transition: color 240ms ease; position: relative; z-index: 1; white-space: nowrap; }
+    .cl-scratch { position: absolute; left: -6px; right: -6px; top: 50%; transform: translateY(-50%); width: calc(100% + 12px); height: 22px; pointer-events: none; overflow: visible; z-index: 2; }
+    .cl-scratch-path { stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke-dashoffset 220ms cubic-bezier(.4,0,.6,1); }
+    .cl-done .cl-scratch-path { stroke-dashoffset: 0; transition: stroke-dashoffset 520ms cubic-bezier(.65,.05,.36,1) 80ms; }
+    .cl-hint {
+      font-size: 12px; color: #4D483E;
+      background: #FAF6EE; border: 1px solid #EFE7D5;
+      padding: 3px 9px; border-radius: 999px;
+      white-space: nowrap;
+    }
+    .calc-btn {
+      appearance: none; border: 0;
+      background: #D97742; color: #FFF6EC;
+      font: inherit; font-size: 14px; font-weight: 600; letter-spacing: 0.005em;
+      padding: 12px 22px; border-radius: 999px;
+      margin: 26px auto 0;
+      display: inline-flex; align-items: center; gap: 10px;
+      cursor: pointer;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.06), 0 6px 16px -8px rgba(217,119,66,0.55);
+      transition: transform 200ms cubic-bezier(.34,1.6,.64,1), box-shadow 200ms ease, background 160ms ease, opacity 200ms ease;
+      animation: calc-btn-in 360ms cubic-bezier(.34,1.5,.64,1);
+    }
+    .calc-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 1px 0 rgba(0,0,0,0.06), 0 10px 22px -10px rgba(217,119,66,0.7); }
+    .calc-btn:active:not(:disabled) { transform: translateY(0); }
+    .calc-btn:disabled { cursor: progress; opacity: 0.92; }
+    .calc-btn.is-calculating { background: #C66D3C; }
+    .calc-arrow { font-size: 16px; display: inline-block; transition: transform 220ms cubic-bezier(.34,1.6,.64,1); }
+    .calc-btn:hover .calc-arrow { transform: translateX(3px); }
+    .calc-spinner {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid rgba(255,246,236,0.35); border-top-color: #FFF6EC;
+      animation: calc-spin 720ms linear infinite;
+    }
+    @keyframes calc-btn-in {
+      from { opacity: 0; transform: translateY(6px) scale(0.96); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes calc-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .cl-scratch-path, .cl-num { transition: none; }
+      .cl-done .cl-num { animation: none; }
+      .calc-btn { animation: none; transition: none; }
+      .calc-spinner { animation: none; border-top-color: rgba(255,246,236,0.6); }
+    }
+
+    /* Stage: grid overlay so both children share the same cell and the stage
+       takes the height of whichever is taller — keeps footer in flow */
+    .stage {
+      display: grid;
+    }
+
+    /* Empty state and results overlay in the same grid cell */
+    .empty-state { grid-area: 1 / 1; align-self: start; }
+    #results     { grid-area: 1 / 1; align-self: start; }
+
+    /* Results panel — crossfade in.
+       height:0 while hidden so the grid row sizes to empty-state only,
+       leaving room for margin-top:auto on the footer. */
+    #results {
+      height: 0; overflow: hidden;
+      opacity: 0;
+      transform: translateY(16px) scale(0.98);
+      pointer-events: none;
+      transition: opacity 520ms cubic-bezier(.4,0,.2,1) 380ms,
+                  transform 640ms cubic-bezier(.34,1.4,.64,1) 380ms;
+    }
+    #results.is-entering {
+      height: auto; overflow: visible;
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .empty-state, #results { transition: opacity 200ms linear !important; transform: none !important; filter: none !important; }
+    }
+
+    /* Recovery notice — third stage overlay, shown when plan disappears */
+    #recoveryBlock {
+      grid-area: 1 / 1; align-self: start;
       display: flex; align-items: center; justify-content: center;
-      font-size: 0.72rem; font-weight: 700;
-      transition: all var(--transition);
+      padding: 40px 0;
+      opacity: 0; pointer-events: none;
+      transition: opacity 240ms ease;
     }
-    .empty-check-item.done .check-circle {
-      border-color: var(--text-muted); color: var(--text-muted);
+    #recoveryBlock.is-shown { opacity: 1; pointer-events: auto; }
+
+    .recovery {
+      display: flex; align-items: flex-start; gap: 14px;
+      background: #FBF4E2; border: 1px solid #ECDFB8;
+      border-radius: 12px; padding: 18px 22px;
+      max-width: 460px; width: 100%;
+    }
+    .recovery-icon { flex-shrink: 0; margin-top: 2px; }
+    .recovery-body { flex: 1; text-align: left; }
+    .recovery-title { font-size: 13px; font-weight: 600; color: #6E5520; margin-bottom: 8px; }
+    .recovery-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .recovery-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      font-size: 13.5px; color: #4D4022;
+      opacity: 0; transform: translateY(4px);
+      animation: recovery-in 280ms cubic-bezier(.34,1.4,.64,1) forwards;
+    }
+    @keyframes recovery-in { to { opacity: 1; transform: translateY(0); } }
+    .recovery-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: #C49A4F; margin-top: 8px; flex-shrink: 0;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #recoveryBlock { transition: opacity 120ms linear; }
+      .recovery-item { animation: none; opacity: 1; transform: none; }
     }
 
     /* Chart card */
@@ -738,19 +890,21 @@
 
 <header>
   <div class="logo-mark">
-    <svg viewBox="0 0 18 18" fill="none">
-      <path d="M2 7 L5 5 L8 9 L11 6 L15 14" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="15" cy="14" r="2" fill="white" opacity="0.65"/>
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-label="To Zero">
+      <rect x="2" y="2" width="20" height="20" rx="5" fill="#2D4A3E"/>
+      <path d="M5,9 C8,12 11,8 14,13 C16,16 18,15 19,17" fill="none" stroke="#E8DCC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
   </div>
   <h1>To Zero <span>— debt payoff calculator</span></h1>
-  <a href="/how-it-works.html" class="header-how">How does this work?</a>
-  <button class="header-share" id="headerShareBtn">
-    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-      <path d="M9.5 1.5L12.5 4.5L9.5 7.5M12.5 4.5H5C3.6 4.5 2.5 5.6 2.5 7v5.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    Share my plan
-  </button>
+  <div class="header-nav">
+    <a href="/how-it-works.html" class="header-how">How does this work?</a>
+    <button class="header-share" id="headerShareBtn">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+        <path d="M9.5 1.5L12.5 4.5L9.5 7.5M12.5 4.5H5C3.6 4.5 2.5 5.6 2.5 7v5.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Share my plan
+    </button>
+  </div>
 </header>
 <div class="share-toast" id="shareToast">Link copied. Send it to someone who can help keep you accountable.</div>
 
@@ -769,6 +923,7 @@
         <span class="input-prefix">$</span>
         <input type="text" id="monthlyBudgetInput" inputmode="decimal" placeholder="300" autocomplete="off">
       </div>
+      <div id="budgetError" style="display:none;font-size:12px;color:#b85c2a;margin-top:6px">Please enter a number from 1–999,999</div>
     </div>
     <div class="extras-list" id="extrasList"></div>
     <button class="btn-add-extra" id="addExtraBtn">
@@ -791,22 +946,50 @@
   <!-- RIGHT PANEL -->
   <div class="right-panel" id="rightPanel">
 
+    <div class="stage">
     <div class="empty-state" id="emptyState">
-      <div class="empty-icon">&#128176;</div>
-      <h2>Add your details to get started</h2>
-      <div class="empty-checklist">
-        <div class="empty-check-item" id="checkBudget">
-          <div class="check-circle">1</div>
-          The amount you can commit to debt repayment each month
+      <div class="empty-card">
+        <div class="empty-icon">
+          <svg viewBox="0 0 56 56" width="48" height="48" aria-hidden="true">
+            <circle cx="10" cy="14" r="4" fill="#D97742" />
+            <circle cx="22" cy="22" r="4" fill="#D97742" opacity="0.85" />
+            <circle cx="34" cy="32" r="4" fill="#D97742" opacity="0.7" />
+            <circle cx="46" cy="42" r="4" fill="#D97742" opacity="0.55" />
+            <line x1="6" y1="48" x2="50" y2="48" stroke="#E5DDCD" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
         </div>
-        <div class="empty-check-item" id="checkDebts">
-          <div class="check-circle">2</div>
-          All of your debts and their balances
-        </div>
+        <h2 class="empty-title">Add your details to get started</h2>
+        <ul class="checklist">
+          <li class="cl-item" id="checkBudget">
+            <span class="cl-num-wrap"><span class="cl-num">1.</span></span>
+            <span class="cl-label-wrap">
+              <span class="cl-label">Your monthly debt repayment budget</span>
+              <svg class="cl-scratch" viewBox="0 0 300 40" preserveAspectRatio="none" aria-hidden="true">
+                <path class="cl-scratch-path" d="M5,22 C30,16 55,28 80,20 C105,12 130,26 160,18 C190,11 215,27 245,19 C270,13 285,24 295,21" fill="none" stroke="#D97742" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" pathLength="100"/>
+              </svg>
+            </span>
+            <span class="cl-hint" id="hintBudget">$0 / mo</span>
+          </li>
+          <li class="cl-item" id="checkDebts">
+            <span class="cl-num-wrap"><span class="cl-num">2.</span></span>
+            <span class="cl-label-wrap">
+              <span class="cl-label">Your debts and balances</span>
+              <svg class="cl-scratch" viewBox="0 0 300 40" preserveAspectRatio="none" aria-hidden="true">
+                <path class="cl-scratch-path" d="M5,22 C30,16 55,28 80,20 C105,12 130,26 160,18 C190,11 215,27 245,19 C270,13 285,24 295,21" fill="none" stroke="#D97742" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85" pathLength="100"/>
+              </svg>
+            </span>
+            <span class="cl-hint" id="hintDebts">0 added</span>
+          </li>
+        </ul>
+        <button class="calc-btn" id="calcBtn" style="display:none">
+          <span>See my path to zero</span>
+          <span class="calc-arrow" aria-hidden="true">→</span>
+        </button>
       </div>
     </div>
 
-    <div id="results" style="display:none">
+    <div id="results">
+      <div id="chartBlock">
 
       <!-- Critical warnings (negative amortization only) -->
       <div id="warningsPanel" style="display:none;margin-bottom:24px" class="warnings-panel fade-in"></div>
@@ -907,7 +1090,11 @@
         <a id="scheduleLink" href="amortization.html" class="schedule-link">View full amortization schedule →</a>
       </div>
 
-    </div>
+      </div><!-- /#chartBlock -->
+
+    </div><!-- /#results -->
+    <div id="recoveryBlock"></div>
+    </div><!-- /.stage -->
 
     <!-- Footer -->
     <footer class="app-footer">
@@ -921,7 +1108,7 @@
   </div>
 </div>
 
-<script src="app.js"></script>
+<script src="app.js?v=13"></script>
 <div id="infoTooltip"></div>
 </body>
 </html>

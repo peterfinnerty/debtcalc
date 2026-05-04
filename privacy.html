@@ -8,19 +8,31 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --text: #2a2118; --text-muted: #8a7a6a; --surface: #faf8f5;
+      --text: #2d2620; --text-muted: #7a6e65; --surface: #faf7f2;
       --border: #e8e0d8; --green: #5a8a6a; --radius: 12px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
     body { background: var(--surface); color: var(--text); line-height: 1.6; }
     header {
-      display: flex; align-items: center; gap: 16px;
-      padding: 16px 24px; border-bottom: 1px solid var(--border);
       background: white;
+      border-bottom: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex; align-items: center; gap: 12px;
+      position: sticky; top: 0; z-index: 10;
     }
-    header a { text-decoration: none; color: var(--green); font-size: 0.85rem; font-weight: 600; }
-    header a:hover { text-decoration: underline; }
-    header span { color: var(--text-muted); font-size: 0.85rem; }
+    .logo-mark { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .logo-mark svg { width: 22px; height: 22px; }
+    header h1 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+    header h1 span { color: var(--text-muted); font-weight: 400; }
+    .header-nav { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .btn-back {
+      padding: 8px 16px; border-radius: 99px;
+      background: none; border: 1px solid var(--border);
+      color: var(--text-muted); font-size: 0.85rem; font-weight: 500; cursor: pointer;
+      text-decoration: none; display: flex; align-items: center; gap: 6px;
+      transition: all 0.25s ease; white-space: nowrap;
+    }
+    .btn-back:hover { border-color: var(--text-muted); color: var(--text); }
     main { max-width: 660px; margin: 48px auto; padding: 0 24px 80px; }
     h1 { font-size: 1.75rem; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.02em; }
     .updated { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 32px; }
@@ -31,7 +43,21 @@
 </head>
 <body>
   <header>
-    <a href="index.html">← Back to calculator</a>
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-label="To Zero">
+        <rect x="2" y="2" width="20" height="20" rx="5" fill="#2D4A3E"/>
+        <path d="M5,9 C8,12 11,8 14,13 C16,16 18,15 19,17" fill="none" stroke="#E8DCC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <h1>To Zero <span>— debt payoff calculator</span></h1>
+    <div class="header-nav">
+      <a href="/" class="btn-back" onclick="if(history.length>1){history.back();return false;}">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M7.5 1.5L3 6l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Back to the calculator
+      </a>
+    </div>
   </header>
   <main>
     <h1>Privacy Policy</h1>

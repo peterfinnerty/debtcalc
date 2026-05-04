@@ -39,6 +39,20 @@ function normalizeDollarInput(val) {
   return n.toLocaleString('en-US');
 }
 
+function normalizeAprInput(val) {
+  // Strip everything except digits and decimal point
+  let s = String(val).replace(/[^\d.]/g, '');
+  // Only allow one decimal point
+  const dotIdx = s.indexOf('.');
+  if (dotIdx !== -1) s = s.slice(0, dotIdx + 1) + s.slice(dotIdx + 1).replace(/\./g, '');
+  // Limit to 1 decimal place
+  const parts = s.split('.');
+  if (parts[1] !== undefined) s = parts[0] + '.' + parts[1].slice(0, 1);
+  // Strip leading zeros (but allow "0." prefix)
+  if (parts[0].length > 1 && parts[0][0] === '0') s = parts[0].replace(/^0+/, '') + (parts[1] !== undefined ? '.' + parts[1].slice(0, 1) : '');
+  return s;
+}
+
 function monthsToDate(m) {
   const d = new Date();
   d.setMonth(d.getMonth() + Math.round(m));

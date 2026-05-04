@@ -212,7 +212,7 @@
 <body>
 
 <header>
-  <a href="/" class="back-link" id="backLink">← Calculator</a>
+  <a href="/" class="back-link" id="backLink" onclick="if(history.length>1){history.back();return false;}">← Calculator</a>
   <div class="header-title">Amortization Schedule <span>— To Zero</span></div>
   <div class="tabs-wrap" id="tabsWrap">
     <button class="tab-btn tab-av" id="tabAv">Avalanche</button>
@@ -224,7 +224,7 @@
 <div id="emptyState" class="empty-state" style="display:none">
   <h2>No debt data found</h2>
   <p>Go back to the calculator, enter your debts, then click "View full amortization schedule."</p>
-  <a href="/" class="btn-back">← Back to calculator</a>
+  <a href="/" class="btn-back" onclick="if(history.length>1){history.back();return false;}">← Back to calculator</a>
 </div>
 
 <div class="content" id="content" style="display:none">
