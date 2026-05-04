@@ -626,7 +626,7 @@
     .chart-tooltip::after {
       content: "";
       position: absolute;
-      bottom: -5px; left: 50%;
+      bottom: -5px; left: var(--tail-x, 50%);
       width: 8px; height: 8px;
       transform: translateX(-50%) rotate(45deg);
       background: #fff;
@@ -1190,7 +1190,7 @@
   </div>
 </div>
 
-<script src="app.js?v=30"></script>
+<script src="app.js?v=31"></script>
 <div id="infoTooltip"></div>
 </body>
 </html>

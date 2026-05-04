@@ -718,17 +718,20 @@ function externalTooltipHandler(context) {
   el.innerHTML = `<div class="ct-date">${dateLabel}</div>${rows.join('')}${deltaHtml}`;
 
   const canvas = chart.canvas;
-  let left = canvas.offsetLeft + tooltip.caretX;
-  let top  = canvas.offsetTop + tooltip.caretY;
+  const pointX = canvas.offsetLeft + tooltip.caretX;
+  const top    = canvas.offsetTop  + tooltip.caretY;
 
-  // Keep tooltip inside chart-wrap horizontally
+  // Keep tooltip inside chart-wrap horizontally; track any shift so the tail
+  // can stay anchored over the actual data point.
   const wrapWidth = canvas.parentElement.clientWidth;
   const halfWidth = el.offsetWidth / 2;
-  if (left - halfWidth < 4) left = halfWidth + 4;
-  if (left + halfWidth > wrapWidth - 4) left = wrapWidth - halfWidth - 4;
+  let left = pointX;
+  if (left - halfWidth < 4)              left = halfWidth + 4;
+  if (left + halfWidth > wrapWidth - 4)  left = wrapWidth - halfWidth - 4;
 
   el.style.left = left + 'px';
   el.style.top  = top  + 'px';
+  el.style.setProperty('--tail-x', `calc(50% + ${pointX - left}px)`);
   el.style.opacity = '1';
 }
 
