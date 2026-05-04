@@ -1511,3 +1511,29 @@ document.getElementById('calcBtn').addEventListener('click', () => {
 updateShareBtn();
 if (!decodeUrl()) { isFirstRun = false; addDebt(); }
 else run();
+
+// Inline onclick handlers in HTML are blocked by the Vercel CSP (script-src 'self').
+// Wire up navigation + the chart's "Show original" toggle here so they work in production.
+(function wireNavHandlers() {
+  // Forward-nav links to sub-pages: persist current calc URL so back buttons can return.
+  document.querySelectorAll('a.nav-out, .header-how, .footer-link').forEach(a => {
+    a.addEventListener('click', () => {
+      try { encodeUrl(); sessionStorage.setItem('calcUrl', location.href); } catch (_) {}
+    });
+  });
+
+  // Amortization link: ensure href has the latest hash at click time.
+  const sched = document.getElementById('scheduleLink');
+  if (sched) {
+    sched.addEventListener('click', function () {
+      try { encodeUrl(); } catch (_) {}
+      this.href = 'amortization.html' + location.hash;
+    });
+    // Also set initial href in case the user clicks before the debounced encodeUrl fires.
+    try { encodeUrl(); } catch (_) {}
+  }
+
+  // "Show original" toggle in the chart.
+  const orig = document.getElementById('origBtn');
+  if (orig) orig.addEventListener('click', toggleOriginalSchedule);
+})();

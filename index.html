@@ -1014,7 +1014,7 @@
               </div>
             </div>
             <div class="chart-btns">
-              <button class="orig-btn" id="origBtn" onclick="toggleOriginalSchedule()">Show original</button>
+              <button class="orig-btn" id="origBtn">Show original</button>
               <button class="extra-btn" id="extraBtn">Pay extra?</button>
             </div>
             <div class="preview-callout" id="previewCallout"></div>
@@ -1101,9 +1101,9 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <a href="privacy.html" onclick="(typeof encodeUrl==='function'&&encodeUrl());sessionStorage.setItem('calcUrl',location.href)">Privacy Policy</a>
+      <a href="privacy.html" class="footer-link" onclick="(typeof encodeUrl==='function'&&encodeUrl());sessionStorage.setItem('calcUrl',location.href)">Privacy Policy</a>
       <span class="footer-sep">·</span>
-      <a href="terms.html" onclick="(typeof encodeUrl==='function'&&encodeUrl());sessionStorage.setItem('calcUrl',location.href)">Terms of Service</a>
+      <a href="terms.html" class="footer-link" onclick="(typeof encodeUrl==='function'&&encodeUrl());sessionStorage.setItem('calcUrl',location.href)">Terms of Service</a>
       <span class="footer-sep">·</span>
       <a href="#" data-tally-open="J98LA7" data-tally-emoji-text="👋" data-tally-emoji-animation="wave">Give me feedback</a>
     </footer>
@@ -1111,7 +1111,7 @@
   </div>
 </div>
 
-<script src="app.js?v=16"></script>
+<script src="app.js?v=17"></script>
 <div id="infoTooltip"></div>
 </body>
 </html>
