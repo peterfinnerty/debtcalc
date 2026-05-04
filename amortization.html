@@ -525,7 +525,12 @@ if (backLink && location.hash) backLink.href = '/' + location.hash;
 if (!state || !state.debts.length) {
   document.getElementById('emptyState').style.display = '';
 } else {
-  render();
+  try {
+    render();
+  } catch(e) {
+    document.getElementById('emptyState').style.display = '';
+    document.getElementById('emptyState').innerHTML += `<p style="color:red;font-size:11px;margin-top:12px">Debug: ${e.message}</p>`;
+  }
 }
 </script>
 </body>
