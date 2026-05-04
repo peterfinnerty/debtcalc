@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Amortization Schedule — To Zero</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <script src="simulation.js?v=4"></script>
+  <script src="simulation.js?v=5"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -221,7 +221,7 @@
   <div id="strategiesSameNote" class="strategies-same-note" style="display:none">Both strategies are identical for your debts</div>
 </header>
 
-<div id="emptyState" class="empty-state" style="display:none">
+<div id="emptyState" class="empty-state">
   <h2>No debt data found</h2>
   <p>Go back to the calculator, enter your debts, then click "View full amortization schedule."</p>
   <a href="/" class="btn-back">← Back to calculator</a>
@@ -361,8 +361,7 @@ function render() {
   const mb    = state.monthlyBudget || 0;
 
   if (!valid.length || !mb) {
-    document.getElementById('emptyState').style.display = '';
-    document.getElementById('content').style.display    = 'none';
+    document.getElementById('content').style.display = 'none';
     return;
   }
   document.getElementById('emptyState').style.display = 'none';
@@ -522,14 +521,12 @@ if (initParams.get('s') === 'snowball') {
 backLink = document.getElementById('backLink');
 if (backLink && location.hash) backLink.href = '/' + location.hash;
 
-if (!state || !state.debts.length) {
-  document.getElementById('emptyState').style.display = '';
-} else {
+if (state && state.debts.length) {
   try {
     render();
+    document.getElementById('emptyState').style.display = 'none';
   } catch(e) {
-    document.getElementById('emptyState').style.display = '';
-    document.getElementById('emptyState').innerHTML += `<p style="color:red;font-size:11px;margin-top:12px">Debug: ${e.message}</p>`;
+    document.getElementById('emptyState').innerHTML += `<p style="color:red;font-size:11px;margin-top:12px">Error: ${e.message}</p>`;
   }
 }
 </script>
