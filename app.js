@@ -821,7 +821,7 @@ function renderSummary() {
       </div>
       <div class="summary-card">
         <div class="s-label">Total interest</div>
-        <div class="s-value c-amber">${fmt(r.interest)}</div>
+        <div class="s-value c-burgundy">${fmt(r.interest)}</div>
         <div class="s-sub">on top of ${fmt(totalDebt)}</div>
       </div>
       <div class="summary-card">
