@@ -56,9 +56,12 @@
       --snowball:   #4a7a9b;
       --radius:     14px;
       --radius-sm:  8px;
-      --shadow:     0 2px 16px rgba(45,38,32,0.08);
-      --shadow-sm:  0 1px 6px rgba(45,38,32,0.06);
-      --transition: 0.25s ease;
+      --r-pill:     999px;
+      --r-xl:       20px;
+      --shadow:       0 2px 16px rgba(45,38,32,0.08);
+      --shadow-sm:    0 1px 6px rgba(45,38,32,0.06);
+      --shadow-sheet: 0 -12px 30px -10px rgba(0,0,0,0.25);
+      --transition:   0.25s ease;
     }
 
     body {
@@ -117,6 +120,20 @@
       transition: all var(--transition);
     }
     .header-how:hover { border-color: var(--text-muted); color: var(--text); }
+    .header-how-icon {
+      display: none;
+      width: 32px; height: 32px;
+      align-items: center; justify-content: center;
+      border-radius: 999px;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.95rem; font-weight: 600;
+      text-decoration: none;
+      transition: all var(--transition);
+      flex-shrink: 0;
+    }
+    .header-how-icon:hover { border-color: var(--text-muted); color: var(--text); }
     .share-toast {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(12px);
       background: var(--text); color: white; font-size: 0.8rem; padding: 10px 18px;
@@ -399,6 +416,7 @@
       padding: 28px 28px 40px;
       display: flex; flex-direction: column; gap: 24px;
       position: relative;
+      min-width: 0;
     }
 
     /* Empty state — crossfade out */
@@ -510,7 +528,9 @@
        takes the height of whichever is taller — keeps footer in flow */
     .stage {
       display: grid;
+      min-width: 0;
     }
+    .stage > * { min-width: 0; }
 
     /* Empty state and results overlay in the same grid cell */
     .empty-state { grid-area: 1 / 1; align-self: start; }
@@ -589,6 +609,7 @@
       border-radius: var(--radius);
       padding: 24px;
       box-shadow: var(--shadow);
+      min-width: 0;
     }
     .chart-header {
       position: relative;
@@ -608,7 +629,7 @@
     .legend-dot {
       width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
     }
-    .chart-wrap { position: relative; height: 280px; }
+    .chart-wrap { position: relative; height: 280px; min-width: 0; max-width: 100%; }
     .chart-tooltip {
       position: absolute;
       pointer-events: none;
@@ -967,6 +988,97 @@
       .s-value { font-size: 1.1rem; }
     }
 
+    /* Mobile (phone viewport) */
+    @media (max-width: 600px) {
+      /* Topbar: hide subtitle, swap text "How does this work?" link for "?" icon */
+      header {
+        padding: 12px 16px;
+        padding-top: max(12px, env(safe-area-inset-top));
+      }
+      header h1 span { display: none; }
+      .header-how { display: none; }
+      .header-how-icon { display: inline-flex; }
+
+      /* Page gutters */
+      .left-panel, .right-panel { padding: 16px; }
+
+      /* Empty-state card */
+      .empty-card { padding: 20px; padding-bottom: 100px; }
+
+      /* Sticky bottom calc CTA — only when #calcBtn is visible (pre-reveal) */
+      #calcBtn {
+        position: fixed;
+        left: 16px; right: 16px;
+        bottom: calc(16px + env(safe-area-inset-bottom));
+        width: auto;
+        z-index: 20;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      }
+
+      /* Chart card */
+      .chart-card { padding: 16px 16px 18px; }
+
+      /* Summary stats: keep 3-col on phone with smaller gap */
+      .summary-grid { grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+      .summary-card { padding: 10px 10px 12px; }
+      .s-label { font-size: 0.6rem; }
+      .s-value { font-size: 1.4rem; }
+      .s-sub { font-size: 0.68rem; }
+
+      /* Strategy toggle card padding shrinks */
+      .tabs-section { padding: 16px; }
+
+      /* Breakdown / payoff timeline cards */
+      .breakdown-card, .payoff-timeline-card { padding: 16px; }
+
+      /* Bottom-sheet for extra-payment modal (deviation A) */
+      .extra-modal {
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        top: auto;
+        width: auto; max-width: none;
+        transform: translateY(100%);
+        opacity: 1;
+        border-radius: var(--r-xl) var(--r-xl) 0 0;
+        padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+        box-shadow: var(--shadow-sheet);
+        transition: transform 360ms cubic-bezier(.34,1.4,.64,1);
+        z-index: 200;
+      }
+      .extra-modal.open {
+        transform: translateY(0);
+      }
+      .em-title { font-size: 0.85rem; margin-bottom: 18px; text-align: center; }
+      .em-amount-row { margin-bottom: 12px; }
+      .em-amount-wrap { padding: 12px 14px; }
+      .em-input { font-size: 1rem; }
+      .em-freq-row { margin-bottom: 12px; }
+      .em-per { display: none; }
+      .em-select { padding-left: 42px; padding-top: 10px; padding-bottom: 10px; font-size: 0.9rem; }
+      .em-slider { margin: 16px 0 4px; }
+      .em-actions { gap: 12px; margin-top: 20px; flex-direction: column-reverse; }
+      .em-actions button { width: 100%; height: 52px; font-size: 0.95rem; }
+
+      /* Scrim behind the sheet */
+      .sheet-backdrop {
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.4);
+        opacity: 0;
+        transition: opacity 240ms ease;
+        pointer-events: none;
+        z-index: 199;
+      }
+      .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+    }
+
+    /* Scrim is mobile-only — kept invisible/inert at desktop */
+    .sheet-backdrop {
+      display: none;
+    }
+    @media (max-width: 600px) {
+      .sheet-backdrop { display: block; }
+    }
+
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(10px); }
       to   { opacity: 1; transform: translateY(0); }
@@ -1000,6 +1112,7 @@
   <h1>To Zero <span>— debt payoff calculator</span></h1>
   <div class="header-nav">
     <a href="/how-it-works.html" class="header-how" onclick="(typeof encodeUrl==='function'&&encodeUrl());sessionStorage.setItem('calcUrl',location.href)">How does this work?</a>
+    <a href="/how-it-works.html" class="header-how-icon" aria-label="How does this work?" onclick="(typeof encodeUrl==='function'&&encodeUrl());sessionStorage.setItem('calcUrl',location.href)">?</a>
     <button class="header-share" id="headerShareBtn">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
         <path d="M9.5 1.5L12.5 4.5L9.5 7.5M12.5 4.5H5C3.6 4.5 2.5 5.6 2.5 7v5.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1154,6 +1267,7 @@
             </div>
             <div id="emInsight" class="em-insight" style="display:none"></div>
           </div>
+          <div class="sheet-backdrop" id="sheetBackdrop"></div>
         </div>
         <div class="chart-wrap">
           <canvas id="payoffChart"></canvas>
@@ -1215,7 +1329,7 @@
   </div>
 </div>
 
-<script src="app.js?v=35"></script>
+<script src="app.js?v=38"></script>
 <div id="infoTooltip"></div>
 </body>
 </html>

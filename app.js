@@ -1063,8 +1063,53 @@ function renderPayoffTimeline() {
 // ==========================================================
 //  EXTRA PAYMENT PREVIEW MODAL
 // ==========================================================
+function isMobileViewport() {
+  return window.matchMedia('(max-width: 600px)').matches;
+}
+
+function anchorChartToTopbar() {
+  const el = document.getElementById('chartBlock');
+  if (!el) return;
+  const body = document.scrollingElement || document.documentElement;
+  const elTop = el.getBoundingClientRect().top;
+  const bodyTop = body.getBoundingClientRect().top;
+  const target = Math.max(0, body.scrollTop + (elTop - bodyTop) - 12);
+  // requestAnimationFrame to ensure layout is settled before measuring
+  requestAnimationFrame(() => {
+    body.scrollTo({ top: target, behavior: 'smooth' });
+  });
+}
+
+// Portal slot — remembers where the modal originally lived so we can put it back
+let _modalOrigParent = null;
+let _modalOrigNext = null;
+
+function portalModalToBody() {
+  const modal = document.getElementById('extraModal');
+  if (!modal || modal.parentElement === document.body) return;
+  _modalOrigParent = modal.parentElement;
+  _modalOrigNext = modal.nextSibling;
+  document.body.appendChild(modal);
+  // Move backdrop too so it sits above other body content but below the sheet
+  const back = document.getElementById('sheetBackdrop');
+  if (back && back.parentElement !== document.body) {
+    document.body.appendChild(back);
+  }
+}
+
+function unportalModal() {
+  const modal = document.getElementById('extraModal');
+  if (!modal || !_modalOrigParent) return;
+  if (_modalOrigNext) _modalOrigParent.insertBefore(modal, _modalOrigNext);
+  else _modalOrigParent.appendChild(modal);
+  _modalOrigParent = null;
+  _modalOrigNext = null;
+}
+
 function openExtraModal() {
+  if (isMobileViewport()) portalModalToBody();
   document.getElementById('extraModal').classList.add('open');
+  document.getElementById('sheetBackdrop')?.classList.add('open');
   document.getElementById('extraBtn').classList.add('active');
   document.getElementById('savingsCallout').style.display = 'none';
   // Sync inputs to current state
@@ -1072,12 +1117,14 @@ function openExtraModal() {
   document.getElementById('emSlider').value = Math.min(previewAmount, 500);
   document.getElementById('emFreq').value = previewFreq;
   updatePreview();
+  if (isMobileViewport()) anchorChartToTopbar();
   setTimeout(() => document.addEventListener('mousedown', outsideClickClose), 0);
 }
 
 function closeExtraModal() {
   const modal = document.getElementById('extraModal');
   modal.classList.remove('open', 'has-insight');
+  document.getElementById('sheetBackdrop')?.classList.remove('open');
   document.getElementById('extraBtn').classList.remove('active');
   document.getElementById('emInsight').style.display = 'none';
   document.getElementById('previewCallout').style.display = 'none';
@@ -1085,6 +1132,8 @@ function closeExtraModal() {
   previewHistory = null;
   if (lastAv && lastSb) drawChart(lastAv, lastSb, lastIdentical);
   updateSavingsCallout();
+  // Wait for slide-out before moving back
+  setTimeout(unportalModal, 380);
 }
 
 function outsideClickClose(e) {
@@ -1612,6 +1661,7 @@ document.getElementById('calcBtn').addEventListener('click', () => {
     hasEverRevealed = true;
     updateShareBtn();
     run();
+    if (isMobileViewport()) setTimeout(anchorChartToTopbar, 350);
   }, 450);
 });
 

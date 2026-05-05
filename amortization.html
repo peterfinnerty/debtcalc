@@ -207,8 +207,14 @@
 
     @media (max-width: 600px) {
       header { padding: 14px 16px; flex-wrap: wrap; gap: 10px; }
-      .content { padding: 20px 16px 48px; }
-      .summary-grid { grid-template-columns: 1fr 1fr; }
+      .header-title { font-size: 0.95rem; }
+      .header-title span { display: none; }
+      .content { padding: 16px 16px 48px; }
+      .summary-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .sched-card { padding: 14px; }
+      thead th, tbody td { padding: 7px 8px; font-size: 0.78rem; }
+      tbody td.mo, tbody td.date, tbody td.cum { font-size: 0.7rem; }
+      .totals-bar { gap: 12px; padding: 10px 12px; font-size: 0.74rem; }
     }
   </style>
 </head>
