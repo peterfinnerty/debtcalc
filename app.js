@@ -122,28 +122,57 @@ function makeCard(id) {
       <div id="balanceArea-${id}"></div>
       <div id="balanceError-${id}" style="display:none;font-size:12px;color:#b85c2a;margin-top:4px">Please enter a number from 1–10,000,000</div>
       <div class="debt-callout" id="callout-${id}"></div>
-      <div class="past-due-section">
-        <label class="past-due-toggle-label">
-          <input type="checkbox" data-field="pastDue" data-id="${id}">
-          <span>Past due?</span>
-        </label>
-        <div id="pastDueFields-${id}" style="display:none;margin-top:8px">
-          <div class="field-row">
-            <div class="field">
-              <label>Months past due</label>
-              <input type="number" placeholder="1" data-field="monthsPastDue" data-id="${id}" min="0" step="1">
+      <div id="bottomFields-${id}"></div>
+      <div class="more-section" id="moreSection-${id}">
+        <button class="more-toggle" data-action="toggle-more" data-id="${id}" type="button">
+          <span>More</span>
+          <svg class="chevron" width="10" height="10" viewBox="0 0 12 12" fill="none">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div class="more-body">
+          <div class="status-toggles" style="display:flex;gap:18px;flex-wrap:wrap">
+            <label class="past-due-toggle-label">
+              <input type="checkbox" data-field="pastDue" data-id="${id}">
+              <span>Past due?</span>
+            </label>
+            <label class="past-due-toggle-label" id="defermentToggle-${id}" style="display:none">
+              <input type="checkbox" data-field="deferment" data-id="${id}">
+              <span>In deferment?</span>
+            </label>
+          </div>
+          <div id="pastDueFields-${id}" style="display:none;margin-top:8px">
+            <div class="field-row">
+              <div class="field">
+                <label>Months past due</label>
+                <input type="number" placeholder="1" data-field="monthsPastDue" data-id="${id}" min="0" step="1">
+              </div>
+              <div class="field">
+                <label>Past due amount</label>
+                <div class="input-wrap has-prefix">
+                  <span class="input-prefix">$</span>
+                  <input type="text" inputmode="decimal" placeholder="0" data-field="pastDueAmount" data-id="${id}" autocomplete="off">
+                </div>
+              </div>
             </div>
-            <div class="field">
-              <label>Past due amount</label>
-              <div class="input-wrap has-prefix">
-                <span class="input-prefix">$</span>
-                <input type="text" inputmode="decimal" placeholder="0" data-field="pastDueAmount" data-id="${id}" autocomplete="off">
+          </div>
+          <div id="defermentFields-${id}" style="display:none;margin-top:8px">
+            <div class="field-row">
+              <div class="field">
+                <label>Repayment starts</label>
+                <input type="month" data-field="defermentUntil" data-id="${id}">
+              </div>
+              <div class="field">
+                <label>Accruing? <span class="info-tooltip" data-tip="Most loans accrue interest during deferment, which then capitalizes (gets added to principal) when repayment starts. Subsidized federal loans typically don't accrue."><i class="info-icon">i</i></span></label>
+                <div class="plan-toggle">
+                  <button class="plan-btn active" data-action="set-defer-accruing" data-id="${id}" data-value="1">Yes</button>
+                  <button class="plan-btn" data-action="set-defer-accruing" data-id="${id}" data-value="0">No</button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-      <div id="bottomFields-${id}"></div>
       <div class="debt-hint" id="debtHint-${id}">Enter all details to include this debt</div>
     </div>`;
   return el;
@@ -184,6 +213,20 @@ function updateCardForType(id, type) {
 
   // Render balance/APR/payment rows for the chosen type
   renderBalanceArea(id, type, debt);
+
+  // Show deferment checkbox only for student loans
+  const defToggle = document.getElementById('defermentToggle-' + id);
+  if (defToggle) defToggle.style.display = (type === 'student_loan') ? '' : 'none';
+
+  // If switching away from student_loan, clear any deferment state
+  if (type !== 'student_loan' && debt.deferment) {
+    debt.deferment = false;
+    debt.defermentUntil = '';
+    const defCb = document.querySelector(`[data-field="deferment"][data-id="${id}"]`);
+    if (defCb) defCb.checked = false;
+    const defFields = document.getElementById('defermentFields-' + id);
+    if (defFields) defFields.style.display = 'none';
+  }
 
   // Clear bottom slot; repopulate below if needed (student loan toggle)
   if (bottomFieldsEl) bottomFieldsEl.innerHTML = '';
@@ -282,6 +325,57 @@ function onPastDueChange(id) {
   if (!debt.pastDue) { debt.monthsPastDue = 0; debt.pastDueAmount = 0; }
   const fields = document.getElementById('pastDueFields-' + id);
   if (fields) fields.style.display = debt.pastDue ? '' : 'none';
+  // Mutex: clear deferment if past due is checked
+  if (debt.pastDue && debt.deferment) {
+    debt.deferment = false;
+    debt.defermentUntil = '';
+    const defCb = document.querySelector(`[data-field="deferment"][data-id="${id}"]`);
+    if (defCb) defCb.checked = false;
+    const defFields = document.getElementById('defermentFields-' + id);
+    if (defFields) defFields.style.display = 'none';
+  }
+  bump();
+}
+
+function onDefermentChange(id) {
+  const debt = debts.find(d => d.id === id);
+  if (!debt) return;
+  const cb = document.querySelector(`[data-field="deferment"][data-id="${id}"]`);
+  debt.deferment = !!cb?.checked;
+  if (!debt.deferment) { debt.defermentUntil = ''; }
+  const fields = document.getElementById('defermentFields-' + id);
+  if (fields) fields.style.display = debt.deferment ? '' : 'none';
+  // Default Accruing? to Yes when first turning deferment on
+  if (debt.deferment && debt.defermentAccruing === undefined) debt.defermentAccruing = true;
+  // Default Repayment starts to 6 months from now if blank
+  if (debt.deferment && !debt.defermentUntil) {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 6);
+    const yyyymm = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    debt.defermentUntil = yyyymm;
+    const dInput = document.querySelector(`[data-field="defermentUntil"][data-id="${id}"]`);
+    if (dInput) dInput.value = yyyymm;
+  }
+  // Mutex: clear past due if deferment is checked
+  if (debt.deferment && debt.pastDue) {
+    debt.pastDue = false;
+    debt.monthsPastDue = 0;
+    debt.pastDueAmount = 0;
+    const pdCb = document.querySelector(`[data-field="pastDue"][data-id="${id}"]`);
+    if (pdCb) pdCb.checked = false;
+    const pdFields = document.getElementById('pastDueFields-' + id);
+    if (pdFields) pdFields.style.display = 'none';
+  }
+  bump();
+}
+
+function setDefermentAccruing(id, accruing) {
+  const debt = debts.find(d => d.id === id);
+  if (!debt) return;
+  debt.defermentAccruing = !!accruing;
+  document.querySelectorAll(`#defermentFields-${id} .plan-btn`).forEach(btn => {
+    btn.classList.toggle('active', (btn.dataset.value === '1') === !!accruing);
+  });
   bump();
 }
 
@@ -312,15 +406,18 @@ function addDebt(pre = {}) {
 
   debts.push({
     id,
-    name:          pre.name || '',
-    balance:       +pre.balance || 0,
-    apr:           (pre.apr !== undefined && pre.apr !== null) ? +pre.apr : null,
-    debtType:      dt,
-    loanType:      pre.loanType || 'federal',
-    monthlyPayment:+pre.monthlyPayment || 0,
-    pastDue:       !!pre.pastDue,
-    monthsPastDue: +pre.monthsPastDue || 0,
-    pastDueAmount: +pre.pastDueAmount || 0,
+    name:              pre.name || '',
+    balance:           +pre.balance || 0,
+    apr:               (pre.apr !== undefined && pre.apr !== null) ? +pre.apr : null,
+    debtType:          dt,
+    loanType:          pre.loanType || 'federal',
+    monthlyPayment:    +pre.monthlyPayment || 0,
+    pastDue:           !!pre.pastDue,
+    monthsPastDue:     +pre.monthsPastDue || 0,
+    pastDueAmount:     +pre.pastDueAmount || 0,
+    deferment:         !!pre.deferment,
+    defermentUntil:    pre.defermentUntil || '',
+    defermentAccruing: pre.defermentAccruing !== undefined ? !!pre.defermentAccruing : true,
   });
 
   const card = makeCard(id);
@@ -353,6 +450,25 @@ function addDebt(pre = {}) {
       const pda = card.querySelector('[data-field="pastDueAmount"]');
       if (pda) pda.value = normalizeDollarInput(pre.pastDueAmount);
     }
+  }
+
+  // Restore deferment state
+  if (pre.deferment) {
+    const cb = card.querySelector(`[data-field="deferment"]`);
+    if (cb) cb.checked = true;
+    const fields = document.getElementById('defermentFields-' + id);
+    if (fields) fields.style.display = '';
+    const dInput = card.querySelector(`[data-field="defermentUntil"]`);
+    if (dInput && pre.defermentUntil) dInput.value = pre.defermentUntil;
+    // Sync Yes/No active state
+    document.querySelectorAll(`#defermentFields-${id} .plan-btn`).forEach(btn => {
+      btn.classList.toggle('active', (btn.dataset.value === '1') === !!debts[debts.length - 1].defermentAccruing);
+    });
+  }
+
+  // Auto-open the More section if past due or deferment was preset
+  if (pre.pastDue || pre.deferment) {
+    document.getElementById('moreSection-' + id)?.classList.add('open');
   }
 
   // Show hint immediately without waiting for run()
@@ -455,6 +571,8 @@ document.getElementById('debtsList').addEventListener('input', e => {
   } else if (field === 'apr') {
     el.value = normalizeAprInput(el.value);
     debt.apr = el.value.trim() !== '' ? (parseFloat(el.value) || 0) : null;
+  } else if (field === 'defermentUntil') {
+    debt.defermentUntil = el.value;
   } else {
     debt[field] = parseFloat(el.value) || 0;
   }
@@ -469,6 +587,7 @@ document.getElementById('debtsList').addEventListener('change', e => {
   if (!field || !id) return;
   if (field === 'debtType') onTypeChange(id);
   else if (field === 'pastDue') onPastDueChange(id);
+  else if (field === 'deferment') onDefermentChange(id);
 });
 
 // Click delegation for debt card actions
@@ -484,6 +603,14 @@ document.getElementById('debtsList').addEventListener('click', e => {
     setStudentLoanType(+loanTypeBtn.dataset.id, loanTypeBtn.dataset.value);
     return;
   }
+
+  // Deferment Accruing toggle
+  const accBtn = e.target.closest('[data-action="set-defer-accruing"]');
+  if (accBtn) { setDefermentAccruing(+accBtn.dataset.id, accBtn.dataset.value === '1'); return; }
+
+  // More section toggle
+  const moreBtn = e.target.closest('[data-action="toggle-more"]');
+  if (moreBtn) { document.getElementById('moreSection-' + moreBtn.dataset.id)?.classList.toggle('open'); return; }
 
   // Toggle card open/closed
   const header = e.target.closest('[data-action="toggle"]');
@@ -1466,6 +1593,9 @@ function encodeUrl() {
         pd: d.pastDue ? 1 : 0,
         mpd: d.monthsPastDue || 0,
         pda: d.pastDueAmount || 0,
+        df: d.deferment ? 1 : 0,
+        du: d.defermentUntil || '',
+        da: d.defermentAccruing ? 1 : 0,
       })),
       e: extras.map(e => [e.amount, e.freq, e.targetId || '']),
     };
@@ -1494,6 +1624,8 @@ function decodeUrl() {
         debtType: d.t, loanType: d.lt || 'federal',
         monthlyPayment: +d.mp || 0,
         pastDue: !!d.pd, monthsPastDue: d.mpd || 0, pastDueAmount: d.pda || 0,
+        deferment: !!d.df, defermentUntil: d.du || '',
+        defermentAccruing: d.da === undefined ? true : !!d.da,
       }));
     } else if (s.v === 3) {
       // Legacy v3 had per-debt minPayment — sum them to reconstruct budget

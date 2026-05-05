@@ -29,7 +29,7 @@
   <meta name="twitter:image" content="https://tozero.app/og-image.png">
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" integrity="sha512-CQBWl4fJHWbryGE+Pc7UAxWMUMNMWzWxF4SQo9CgkJIN1kx6djDQZjh3Y8SZ1d+6I+1zze6Z7kHXO7q3UyZAWw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="simulation.js?v=6"></script>
+  <script src="simulation.js?v=7"></script>
   <!-- Tally popup embed -->
   <script async src="https://tally.so/widgets/embed.js"></script>
 
@@ -238,6 +238,23 @@
 
     /* Past due section */
     .past-due-section { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+
+    /* Collapsible "More" section (past due + deferment) */
+    .more-section { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .more-toggle {
+      display: flex; align-items: center; gap: 5px;
+      background: none; border: none; padding: 4px 0;
+      font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
+      cursor: pointer; transition: color var(--transition);
+    }
+    .more-toggle:hover { color: var(--text); }
+    .more-toggle .chevron { transition: transform 0.2s ease; }
+    .more-section.open .more-toggle .chevron { transform: rotate(180deg); }
+    .more-body {
+      overflow: hidden; max-height: 0;
+      transition: max-height 0.3s ease, padding-top 0.3s ease;
+    }
+    .more-section.open .more-body { max-height: 500px; padding-top: 10px; }
     .past-due-toggle-label {
       display: flex; align-items: center; gap: 8px;
       cursor: pointer; font-size: 0.8rem; color: var(--text-muted); font-weight: 500;
@@ -1411,7 +1428,7 @@
   </div>
 </div>
 
-<script src="app.js?v=47"></script>
+<script src="app.js?v=48"></script>
 <div id="infoTooltip"></div>
 </body>
 </html>

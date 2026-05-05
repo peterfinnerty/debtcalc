@@ -89,6 +89,8 @@ function getFloor(d) {
 
 // Same floor logic but accepts a source debt object (d.balance, d.apr) for warnings/display.
 function getFloorFromSource(d) {
+  // Deferred debts have no required payment until repayment starts
+  if (d.deferment && defermentMonthsRemaining(d) > 0) return 0;
   const bal = d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0);
   const rate = (d.apr || 0) / 1200;
   const monthlyInterest = bal * rate;
@@ -121,6 +123,18 @@ function termFromPayment(principal, aprPct, payment) {
   if (r === 0) return Math.ceil(principal / payment);
   if (payment <= principal * r) return Infinity;
   return Math.ceil(-Math.log(1 - principal * r / payment) / Math.log(1 + r));
+}
+
+// Number of simulation months a debt is in deferment. Sim month 1 is "next month"
+// (since interest accrues then payments post), so a defermentUntil of "next month"
+// means defMonths = 0 (no deferment), and "month after next" means defMonths = 1.
+function defermentMonthsRemaining(d, simStart) {
+  if (!d.deferment || !d.defermentUntil) return 0;
+  const start = simStart || new Date();
+  const [y, m] = d.defermentUntil.split('-').map(Number);
+  if (!y || !m) return 0;
+  const monthsBetween = (y - start.getFullYear()) * 12 + (m - 1 - start.getMonth());
+  return Math.max(0, monthsBetween - 1);
 }
 
 function avSortKey(d) {
@@ -160,9 +174,11 @@ function simulate(source, eb, strategy, monthlyBudget) {
   const effBal = d => d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0);
   let pool = source
     .filter(d => d.balance > 0)
-    .map(d => ({ ...d, b: effBal(d), rate: (d.apr || 0) / 1200 }));
+    .map(d => ({ ...d, b: effBal(d), rate: (d.apr || 0) / 1200, defMonths: defermentMonthsRemaining(d) }));
 
   if (!pool.length) return null;
+
+  const isDeferred = (d, mo) => d.defMonths > 0 && mo <= d.defMonths;
 
   const history = [pool.reduce((s, d) => s + d.b, 0)];
   let interest = 0, mo = 0;
@@ -171,37 +187,39 @@ function simulate(source, eb, strategy, monthlyBudget) {
   while (mo < 600 && pool.some(d => d.b > 0.005)) {
     mo++;
 
-    // Accrue interest
+    // Accrue interest (skip if deferred and not accruing)
     for (const d of pool) {
-      if (d.b > 0) { const i = d.b * d.rate; d.b += i; interest += i; }
+      if (d.b > 0 && !(isDeferred(d, mo) && !d.defermentAccruing)) {
+        const i = d.b * d.rate; d.b += i; interest += i;
+      }
     }
 
     // Total available this month: fixed budget + optional extra + one-time (month 1 only)
     let rem = monthlyBudget + Math.max(0, eb.optimal)
       + (mo === 1 ? Math.max(0, eb.oneTime || 0) : 0);
 
-    // Pay floor on every active debt (capped at remaining budget to prevent overdraft)
+    // Pay floor on every active, non-deferred debt
     for (const d of pool) {
-      if (d.b > 0 && rem > 0.005) {
+      if (d.b > 0 && rem > 0.005 && !isDeferred(d, mo)) {
         const p = Math.min(getFloor(d), d.b, rem);
         d.b -= p;
         rem -= p;
       }
     }
 
-    // Targeted extras: apply to chosen debt, fall back to strategy priority if paid off
+    // Targeted extras: apply to chosen debt unless it's deferred; fall back to strategy priority
     for (const te of eb.targeted) {
-      let target = pool.find(d => d.id == te.id && d.b > 0.005);
+      let target = pool.find(d => d.id == te.id && d.b > 0.005 && !isDeferred(d, mo));
       if (!target) {
-        const alive = pool.filter(d => d.b > 0.005);
+        const alive = pool.filter(d => d.b > 0.005 && !isDeferred(d, mo));
         strategySort(alive, strategy);
         target = alive[0];
       }
       if (target) { const p = Math.min(te.amount, target.b); target.b -= p; }
     }
 
-    // Surplus after floors → strategy priority
-    const active = pool.filter(d => d.b > 0.005);
+    // Surplus after floors → strategy priority (skip deferred debts)
+    const active = pool.filter(d => d.b > 0.005 && !isDeferred(d, mo));
     strategySort(active, strategy);
     for (const d of active) {
       if (rem <= 0) break;
@@ -229,27 +247,30 @@ function firstMonthBreakdown(source, eb, strategy, monthlyBudget) {
   const effBal = d => d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0);
   let pool = source
     .filter(d => d.balance > 0)
-    .map(d => ({ ...d, b: effBal(d), rate: (d.apr || 0) / 1200, alloc: 0 }));
+    .map(d => ({ ...d, b: effBal(d), rate: (d.apr || 0) / 1200, defMonths: defermentMonthsRemaining(d), alloc: 0 }));
+
+  // Month 1 of the sim — a debt is deferred this month iff defMonths >= 1
+  const isDeferredM1 = d => d.defMonths >= 1;
 
   let rem = monthlyBudget + Math.max(0, eb.optimal) + Math.max(0, eb.oneTime || 0);
 
-  // Apply floors (capped at remaining budget)
+  // Apply floors (skip deferred)
   for (const d of pool) {
-    if (rem > 0.005) {
+    if (rem > 0.005 && !isDeferredM1(d)) {
       const p = Math.min(getFloor(d), d.b, rem);
       d.alloc += p;
       rem -= p;
     }
   }
 
-  // Targeted extras
+  // Targeted extras (skip deferred)
   for (const te of eb.targeted) {
     const target = pool.find(d => d.id == te.id);
-    if (target) { const p = Math.min(te.amount, target.b - target.alloc); target.alloc += p; }
+    if (target && !isDeferredM1(target)) { const p = Math.min(te.amount, target.b - target.alloc); target.alloc += p; }
   }
 
-  // Surplus → strategy priority
-  const active = pool.filter(d => d.b - d.alloc > 0.005);
+  // Surplus → strategy priority (skip deferred)
+  const active = pool.filter(d => d.b - d.alloc > 0.005 && !isDeferredM1(d));
   strategySort(active, strategy);
   for (const d of active) {
     if (rem <= 0) break;
@@ -257,13 +278,15 @@ function firstMonthBreakdown(source, eb, strategy, monthlyBudget) {
   }
 
   return pool.map(d => {
-    const monthlyInterest = d.b * d.rate;
+    const accruing = !(isDeferredM1(d) && !d.defermentAccruing);
+    const monthlyInterest = accruing ? d.b * d.rate : 0;
     const principal = Math.max(0, d.alloc - monthlyInterest);
     return {
       id: d.id, name: d.name, payment: d.alloc, balance: d.b, apr: d.apr,
       monthlyInterest, principal,
       monthsPastDue: d.monthsPastDue || 0,
       pastDueAmount: d.pastDue ? (d.pastDueAmount || 0) : 0,
+      deferred: isDeferredM1(d),
     };
   });
 }
@@ -278,9 +301,11 @@ function buildSchedule(source, eb, strategy, monthlyBudget) {
   const effBal = d => d.balance + (d.pastDue ? (d.pastDueAmount || 0) : 0);
   let pool = source
     .filter(d => d.balance > 0)
-    .map(d => ({ ...d, b: effBal(d), rate: (d.apr || 0) / 1200 }));
+    .map(d => ({ ...d, b: effBal(d), rate: (d.apr || 0) / 1200, defMonths: defermentMonthsRemaining(d) }));
 
   if (!pool.length) return { rows: [], debts: [] };
+
+  const isDeferred = (d, mo) => d.defMonths > 0 && mo <= d.defMonths;
 
   const debtMeta = pool.map(d => ({ id: d.id, name: d.name, apr: d.apr, initialBalance: effBal(d) }));
   const rows = [];
@@ -290,10 +315,10 @@ function buildSchedule(source, eb, strategy, monthlyBudget) {
   while (mo < 600 && pool.some(d => d.b > 0.005)) {
     mo++;
 
-    // Accrue interest
+    // Accrue interest (skip if deferred and not accruing)
     const monthlyInterestMap = {};
     for (const d of pool) {
-      if (d.b > 0) {
+      if (d.b > 0 && !(isDeferred(d, mo) && !d.defermentAccruing)) {
         const i = d.b * d.rate;
         monthlyInterestMap[d.id] = i;
         d.b += i;
@@ -309,27 +334,27 @@ function buildSchedule(source, eb, strategy, monthlyBudget) {
     const paid = {};
     for (const d of pool) paid[d.id] = 0;
 
-    // Floors
+    // Floors (skip deferred)
     for (const d of pool) {
-      if (d.b > 0 && rem > 0.005) {
+      if (d.b > 0 && rem > 0.005 && !isDeferred(d, mo)) {
         const p = Math.min(getFloor(d), d.b, rem);
         d.b -= p; rem -= p; paid[d.id] += p;
       }
     }
 
-    // Targeted extras
+    // Targeted extras (skip deferred)
     for (const te of eb.targeted) {
-      let target = pool.find(d => d.id == te.id && d.b > 0.005);
+      let target = pool.find(d => d.id == te.id && d.b > 0.005 && !isDeferred(d, mo));
       if (!target) {
-        const alive = pool.filter(d => d.b > 0.005);
+        const alive = pool.filter(d => d.b > 0.005 && !isDeferred(d, mo));
         strategySort(alive, strategy);
         target = alive[0];
       }
       if (target) { const p = Math.min(te.amount, target.b); target.b -= p; paid[target.id] += p; }
     }
 
-    // Surplus → strategy priority
-    const active = pool.filter(d => d.b > 0.005);
+    // Surplus → strategy priority (skip deferred)
+    const active = pool.filter(d => d.b > 0.005 && !isDeferred(d, mo));
     strategySort(active, strategy);
     for (const d of active) {
       if (rem <= 0) break;

@@ -36,6 +36,8 @@ function decodeState() {
         debtType: normalizeType(d.t), loanType: d.lt || 'federal',
         monthlyPayment: +d.mp || 0,
         pastDue: !!d.pd, monthsPastDue: +d.mpd || 0, pastDueAmount: +d.pda || 0,
+        deferment: !!d.df, defermentUntil: d.du || '',
+        defermentAccruing: d.da === undefined ? true : !!d.da,
       }));
     } else if (raw.v === 3 && Array.isArray(raw.d)) {
       monthlyBudget = raw.d.reduce((s, d) => s + (+d.m || 0), 0);
