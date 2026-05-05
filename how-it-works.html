@@ -259,6 +259,16 @@
       color: var(--text-muted);
       line-height: 1.65;
     }
+    .other-card p + p { margin-top: 8px; }
+    .other-card ul {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      padding-left: 20px;
+      margin: 8px 0;
+    }
+    .other-card li { margin-bottom: 4px; }
+    .other-card li:last-child { margin-bottom: 0; }
 
     /* Privacy card */
     .privacy-card {
@@ -387,7 +397,14 @@
 
       <div class="other-card">
         <h3>Why your numbers might differ slightly</h3>
-        <p>We calculate interest monthly. Real credit card interest accrues daily, so your actual payoff date might shift by a month or two. Treat this as a close estimate, not a guarantee.</p>
+        <p>We make a few simplifications to keep the math tractable:</p>
+        <ul>
+          <li>APR is treated as a nominal annual rate split into 12 equal monthly periods. Real credit cards use a daily periodic rate, so card interest here is slightly understated.</li>
+          <li>Federal student loans use daily simple interest in the real world; we approximate them as monthly compound, which slightly overstates interest.</li>
+          <li>Late fees, penalty APRs, and re-aging aren't modeled. Past-due amounts are added to your balance but no penalty rate is applied.</li>
+          <li>Payments are assumed to post once per month, on the same day interest accrues.</li>
+        </ul>
+        <p>Treat this as a close estimate, not a guarantee — your payoff date might shift by a month or two from what your lender shows.</p>
       </div>
 
       <div class="other-card">

@@ -71,13 +71,17 @@ function monthsLabel(m) {
 // ==========================================================
 
 // The absolute floor for a debt in simulation:
-//   Credit card: max($25, 1% of balance + interest, 2% of balance)
-//   Loan/other:  interest-only (balance × APR/1200), minimum $25
+//   Credit card:                  max($25, 1% of balance + interest, 2% of balance)
+//   Loan with fixed payment set:  the contractual monthly payment (capped at balance)
+//   Loan/student loan/other:      interest-only (balance × APR/1200), minimum $25
 // Called with live pool objects (d.b = live balance, d.rate = apr/1200).
 function getFloor(d) {
   const monthlyInterest = d.b * d.rate;
   if (d.debtType === 'credit_card') {
     return Math.min(d.b, Math.max(25, d.b * 0.01 + monthlyInterest, d.b * 0.02));
+  }
+  if (d.monthlyPayment > 0) {
+    return Math.min(d.b, d.monthlyPayment);
   }
   // Loans/student loans/other: interest-only floor, minimum $25
   return Math.min(d.b, Math.max(25, monthlyInterest));
@@ -91,7 +95,32 @@ function getFloorFromSource(d) {
   if (d.debtType === 'credit_card') {
     return Math.min(bal, Math.max(25, bal * 0.01 + monthlyInterest, bal * 0.02));
   }
+  if (d.monthlyPayment > 0) {
+    return Math.min(bal, d.monthlyPayment);
+  }
   return Math.min(bal, Math.max(25, monthlyInterest));
+}
+
+// Standard fixed-payment amortization formula:
+//   P = L × [r(1+r)^n] / [(1+r)^n − 1]
+// Source: Brealey/Myers/Allen, Principles of Corporate Finance, §2-4 (Annuities);
+//         Federal Reserve Board, "Calculating Your Mortgage Payment" methodology.
+function amortizingPayment(principal, aprPct, months) {
+  if (!(principal > 0) || !(months > 0)) return 0;
+  const r = (aprPct || 0) / 1200;
+  if (r === 0) return principal / months;
+  const f = Math.pow(1 + r, months);
+  return principal * (r * f) / (f - 1);
+}
+
+// Inverse: months remaining given balance, APR, monthly payment.
+// Returns Infinity if the payment doesn't cover monthly interest (loan would grow).
+function termFromPayment(principal, aprPct, payment) {
+  if (!(principal > 0) || !(payment > 0)) return 0;
+  const r = (aprPct || 0) / 1200;
+  if (r === 0) return Math.ceil(principal / payment);
+  if (payment <= principal * r) return Infinity;
+  return Math.ceil(-Math.log(1 - principal * r / payment) / Math.log(1 + r));
 }
 
 function avSortKey(d) {
@@ -363,6 +392,21 @@ function calcWarnings(valid, sim, monthlyBudget) {
     if (d.debtType === 'student_loan' && d.loanType === 'federal' && (d.apr || 0) > 10) {
       const label = d.name || 'Federal student loan';
       warnings.push({ type: 'federal-loan-high-apr', label, apr: d.apr });
+    }
+  }
+
+  // Rule 4 — fixed monthly payment doesn't cover monthly interest (loan would grow)
+  for (const d of valid) {
+    if (d.monthlyPayment > 0) {
+      const monthlyInterest = d.balance * (d.apr || 0) / 1200;
+      if (d.monthlyPayment < monthlyInterest) {
+        warnings.push({
+          type: 'payment-below-interest',
+          label: d.name || 'Loan',
+          payment: d.monthlyPayment,
+          interest: monthlyInterest,
+        });
+      }
     }
   }
 

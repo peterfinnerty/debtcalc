@@ -187,6 +187,19 @@ function updateCardForType(id, type) {
   // Clear bottom slot; repopulate below if needed
   if (bottomFieldsEl) bottomFieldsEl.innerHTML = '';
 
+  // Optional fixed-payment field — shown for amortizing loan types
+  const paymentFieldHtml = (type === 'loan' || type === 'student_loan') ? `
+    <div class="field-row" style="margin-top:10px">
+      <div class="field">
+        <label>Monthly payment <span style="color:var(--text-muted);font-weight:400;font-size:0.85em">(optional)</span></label>
+        <div class="input-wrap has-prefix">
+          <span class="input-prefix">$</span>
+          <input type="text" inputmode="decimal" placeholder="${type==='loan'?'e.g. 387':'e.g. 250'}" data-field="monthlyPayment" data-id="${id}" autocomplete="off">
+        </div>
+        <div class="field-hint" style="font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.4">For mortgages, auto, or fixed-term loans — enter your contractual payment.</div>
+      </div>
+    </div>` : '';
+
   switch (type) {
     case 'student_loan': {
       const lt = debt.loanType || 'federal';
@@ -195,7 +208,7 @@ function updateCardForType(id, type) {
           <div class="plan-toggle" style="margin-top:10px">
             <button class="plan-btn${lt==='federal'?' active':''}" data-action="set-loan-type" data-id="${id}" data-value="federal">Federal</button>
             <button class="plan-btn${lt==='private'?' active':''}" data-action="set-loan-type" data-id="${id}" data-value="private">Private</button>
-          </div>`;
+          </div>` + paymentFieldHtml;
       }
       if (lt === 'federal') {
         calloutEl.className = 'debt-callout blue show';
@@ -206,10 +219,20 @@ function updateCardForType(id, type) {
       }
       break;
     }
+    case 'loan': {
+      if (bottomFieldsEl) bottomFieldsEl.innerHTML = paymentFieldHtml;
+      calloutEl.className = 'debt-callout';
+      calloutEl.innerHTML = '';
+      break;
+    }
     default:
       calloutEl.className = 'debt-callout';
       calloutEl.innerHTML = '';
   }
+  // Restore monthlyPayment input value if the debt has one
+  const mpEl = bottomFieldsEl?.querySelector('[data-field="monthlyPayment"]');
+  if (mpEl && debt.monthlyPayment) mpEl.value = normalizeDollarInput(debt.monthlyPayment);
+
   updateCardPlaceholders(id, type);
 }
 
@@ -279,6 +302,7 @@ function addDebt(pre = {}) {
     apr:           (pre.apr !== undefined && pre.apr !== null) ? +pre.apr : null,
     debtType:      dt,
     loanType:      pre.loanType || 'federal',
+    monthlyPayment:+pre.monthlyPayment || 0,
     pastDue:       !!pre.pastDue,
     monthsPastDue: +pre.monthsPastDue || 0,
     pastDueAmount: +pre.pastDueAmount || 0,
@@ -382,7 +406,7 @@ function collapseAllDebts() {
 }
 
 // Money fields that need comma-formatting
-const MONEY_FIELDS = new Set(['balance', 'pastDueAmount']);
+const MONEY_FIELDS = new Set(['balance', 'pastDueAmount', 'monthlyPayment']);
 
 document.getElementById('debtsList').addEventListener('input', e => {
   const el = e.target, id = +el.dataset.id, field = el.dataset.field;
@@ -1026,6 +1050,9 @@ function renderWarnings(valid, sim) {
     if (w.type === 'federal-loan-high-apr') {
       return `<div class="warning-item caution" style="display:flex;align-items:flex-start;gap:8px">${cautionIcon}<span><strong>${escHtml(w.label)}</strong>: ${w.apr.toFixed(1)}% APR is high for a federal student loan. Double-check your rate — federal loans are typically below 8%.</span></div>`;
     }
+    if (w.type === 'payment-below-interest') {
+      return `<div class="warning-item danger" style="display:flex;align-items:flex-start;gap:8px">${dangerIcon}<span><strong>${escHtml(w.label)}</strong>: monthly payment of ${fmt(w.payment)} doesn't cover the ${fmt(w.interest)} of interest accruing each month. The balance will grow, not shrink.</span></div>`;
+    }
     return '';
   }).filter(Boolean);
 
@@ -1416,6 +1443,7 @@ function encodeUrl() {
         a: d.apr,
         t: d.debtType,
         lt: d.loanType || '',
+        mp: d.monthlyPayment || 0,
         pd: d.pastDue ? 1 : 0,
         mpd: d.monthsPastDue || 0,
         pda: d.pastDueAmount || 0,
@@ -1445,6 +1473,7 @@ function decodeUrl() {
       if (Array.isArray(s.d)) s.d.forEach(d => addDebt({
         name: d.n, balance: d.b, apr: d.a,
         debtType: d.t, loanType: d.lt || 'federal',
+        monthlyPayment: +d.mp || 0,
         pastDue: !!d.pd, monthsPastDue: d.mpd || 0, pastDueAmount: d.pda || 0,
       }));
     } else if (s.v === 3) {

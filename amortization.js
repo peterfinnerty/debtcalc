@@ -32,6 +32,7 @@ function decodeState() {
       raw.d.forEach(d => debts.push({
         id: ++idCounter, name: d.n || '', balance: +d.b || 0, apr: +d.a || 0,
         debtType: normalizeType(d.t), loanType: d.lt || 'federal',
+        monthlyPayment: +d.mp || 0,
         pastDue: !!d.pd, monthsPastDue: +d.mpd || 0, pastDueAmount: +d.pda || 0,
       }));
     } else if (raw.v === 3 && Array.isArray(raw.d)) {
