@@ -268,6 +268,11 @@ function renderMoreBody(id, type, debt) {
   const slot = document.getElementById('moreBodyContent-' + id);
   if (!slot) return;
 
+  // Toggle label: "Past due?" for non-student loans (only thing in there),
+  // "More" for student loans (contains past due + deferment)
+  const toggleLabel = document.querySelector(`#moreSection-${id} .more-toggle span`);
+  if (toggleLabel) toggleLabel.textContent = type === 'student_loan' ? 'More' : 'Past due?';
+
   const pastDueFieldsHtml = `
     <div class="field-row">
       <div class="field">
@@ -326,9 +331,7 @@ function renderMoreBody(id, type, debt) {
     if (debt.defermentUntil) slot.querySelector('[data-field="defermentUntil"]').value = debt.defermentUntil;
   } else {
     // Non-student loans: past-due fields shown directly, no checkbox
-    slot.innerHTML = `
-      <div class="field-hint" style="font-size:11px;color:var(--text-muted);margin-bottom:6px">Past due (leave blank if not past due)</div>
-      ${pastDueFieldsHtml}`;
+    slot.innerHTML = pastDueFieldsHtml;
     if (debt.monthsPastDue) slot.querySelector('[data-field="monthsPastDue"]').value = debt.monthsPastDue;
     if (debt.pastDueAmount) slot.querySelector('[data-field="pastDueAmount"]').value = normalizeDollarInput(debt.pastDueAmount);
   }
