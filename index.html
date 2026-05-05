@@ -1372,10 +1372,6 @@
           <span>We don't save your data</span>
         </div>
       </div>
-      <button class="calc-btn" id="calcBtn">
-        <span>See my path to zero</span>
-        <span class="calc-arrow" aria-hidden="true">→</span>
-      </button>
     </div>
 
     <div id="results">
@@ -1491,6 +1487,13 @@
     <div id="recoveryBlock"></div>
     </div><!-- /.stage -->
 
+    <!-- First-run CTA — outside .stage so position:fixed on mobile is relative
+         to the viewport, not to .empty-state's transform containing block -->
+    <button class="calc-btn" id="calcBtn">
+      <span>See my path to zero</span>
+      <span class="calc-arrow" aria-hidden="true">→</span>
+    </button>
+
     <!-- Footer -->
     <footer class="app-footer">
       <a href="privacy.html" class="footer-link" onclick="(typeof encodeUrl==='function'&&encodeUrl());sessionStorage.setItem('calcUrl',location.href)">Privacy Policy</a>
@@ -1503,7 +1506,7 @@
   </div>
 </div>
 
-<script src="app.js?v=57"></script>
+<script src="app.js?v=58"></script>
 <div id="infoTooltip"></div>
 </body>
 </html>
