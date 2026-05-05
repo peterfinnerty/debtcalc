@@ -55,11 +55,24 @@ const FREQ = {
 //  DEBT TYPE DEFINITIONS
 // ==========================================================
 const DEBT_TYPES = [
-  { value: 'credit_card',  label: 'Credit Card' },
-  { value: 'loan',         label: 'Loan' },
-  { value: 'student_loan', label: 'Student Loan' },
-  { value: 'other',        label: 'Other' },
+  { value: 'credit_card',   label: 'Credit Card' },
+  { value: 'mortgage',      label: 'Mortgage' },
+  { value: 'auto',          label: 'Auto Loan' },
+  { value: 'personal_loan', label: 'Personal Loan' },
+  { value: 'student_loan',  label: 'Student Loan' },
+  { value: 'other',         label: 'Other' },
 ];
+
+// Types that have a contractual fixed monthly payment — payment field is required
+const FIXED_PAYMENT_TYPES = new Set(['mortgage', 'auto', 'personal_loan']);
+
+// Single source of truth: a debt is "complete" enough to simulate when…
+function isDebtComplete(d) {
+  if (!(d.balance > 0)) return false;
+  if (d.apr === null) return false;
+  if (FIXED_PAYMENT_TYPES.has(d.debtType) && !(d.monthlyPayment > 0)) return false;
+  return true;
+}
 
 // ==========================================================
 //  DEBT CARD DOM
@@ -187,16 +200,17 @@ function updateCardForType(id, type) {
   // Clear bottom slot; repopulate below if needed
   if (bottomFieldsEl) bottomFieldsEl.innerHTML = '';
 
-  // Optional fixed-payment field — shown for amortizing loan types
-  const paymentFieldHtml = (type === 'loan' || type === 'student_loan') ? `
+  // Required fixed-payment field — shown for mortgage/auto/personal_loan
+  const placeholderByType = { mortgage: 'e.g. 1,995', auto: 'e.g. 387', personal_loan: 'e.g. 250' };
+  const paymentFieldHtml = FIXED_PAYMENT_TYPES.has(type) ? `
     <div class="field-row" style="margin-top:10px">
       <div class="field">
-        <label>Monthly payment <span style="color:var(--text-muted);font-weight:400;font-size:0.85em">(optional)</span></label>
+        <label>Monthly payment</label>
         <div class="input-wrap has-prefix">
           <span class="input-prefix">$</span>
-          <input type="text" inputmode="decimal" placeholder="${type==='loan'?'e.g. 387':'e.g. 250'}" data-field="monthlyPayment" data-id="${id}" autocomplete="off">
+          <input type="text" inputmode="decimal" placeholder="${placeholderByType[type] || 'e.g. 250'}" data-field="monthlyPayment" data-id="${id}" autocomplete="off">
         </div>
-        <div class="field-hint" style="font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.4">For mortgages, auto, or fixed-term loans — enter your contractual payment.</div>
+        <div class="field-hint" style="font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.4">Your contractual monthly payment.</div>
       </div>
     </div>` : '';
 
@@ -208,7 +222,7 @@ function updateCardForType(id, type) {
           <div class="plan-toggle" style="margin-top:10px">
             <button class="plan-btn${lt==='federal'?' active':''}" data-action="set-loan-type" data-id="${id}" data-value="federal">Federal</button>
             <button class="plan-btn${lt==='private'?' active':''}" data-action="set-loan-type" data-id="${id}" data-value="private">Private</button>
-          </div>` + paymentFieldHtml;
+          </div>`;
       }
       if (lt === 'federal') {
         calloutEl.className = 'debt-callout blue show';
@@ -219,7 +233,9 @@ function updateCardForType(id, type) {
       }
       break;
     }
-    case 'loan': {
+    case 'mortgage':
+    case 'auto':
+    case 'personal_loan': {
       if (bottomFieldsEl) bottomFieldsEl.innerHTML = paymentFieldHtml;
       calloutEl.className = 'debt-callout';
       calloutEl.innerHTML = '';
@@ -233,6 +249,11 @@ function updateCardForType(id, type) {
   const mpEl = bottomFieldsEl?.querySelector('[data-field="monthlyPayment"]');
   if (mpEl && debt.monthlyPayment) mpEl.value = normalizeDollarInput(debt.monthlyPayment);
 
+  // Drop monthlyPayment from state if user switched to a type that doesn't use it
+  if (!FIXED_PAYMENT_TYPES.has(type) && debt.monthlyPayment) {
+    debt.monthlyPayment = 0;
+  }
+
   updateCardPlaceholders(id, type);
 }
 
@@ -241,10 +262,12 @@ function updateCardPlaceholders(id, type) {
   const balEl  = document.querySelector(`[data-field="balance"][data-id="${id}"]`);
   const aprEl  = document.querySelector(`[data-field="apr"][data-id="${id}"]`);
   const cfg = {
-    credit_card:  { name: 'e.g. Chase Freedom',       bal: '3,500',  apr: '22.9' },
-    loan:         { name: 'e.g. Car / Mortgage / SoFi', bal: '15,000', apr: '7.5' },
-    student_loan: { name: 'e.g. Navient / MOHELA',    bal: '25,000', apr: '5.5'  },
-    other:        { name: 'e.g. Medical bill',         bal: '2,000',  apr: '0'    },
+    credit_card:   { name: 'e.g. Chase Freedom',     bal: '3,500',   apr: '22.9' },
+    mortgage:      { name: 'e.g. Wells Fargo home',  bal: '320,000', apr: '7.0'  },
+    auto:          { name: 'e.g. Honda Civic',       bal: '18,000',  apr: '6.5'  },
+    personal_loan: { name: 'e.g. SoFi personal',     bal: '12,000',  apr: '9.0'  },
+    student_loan:  { name: 'e.g. Navient / MOHELA',  bal: '25,000',  apr: '5.5'  },
+    other:         { name: 'e.g. Medical bill',      bal: '2,000',   apr: '0'    },
   }[type] || { name: 'e.g. Debt name', bal: '5,000', apr: '0' };
   if (nameEl) nameEl.placeholder = cfg.name;
   if (balEl)  balEl.placeholder  = cfg.bal;
@@ -284,13 +307,15 @@ function setStudentLoanType(id, lt) {
 
 function addDebt(pre = {}) {
   const id = ++debtId;
-  // Map legacy type values to new 4-type system
+  // Map legacy type values to current 6-type system
   let dt = pre.debtType || 'credit_card';
   if (dt === 'card') dt = 'credit_card';
-  if (['personal_loan','auto','mortgage','bnpl','tax'].includes(dt)) dt = 'loan';
+  if (dt === 'loan') dt = 'personal_loan';            // legacy single "loan" bucket
+  if (['bnpl','tax'].includes(dt)) dt = 'personal_loan';
   if (dt === 'student_private' || dt === 'student_federal') dt = 'student_loan';
   if (dt === 'medical' || dt === 'collections') dt = 'other';
-  if (!['credit_card','loan','student_loan','other'].includes(dt)) dt = 'credit_card';
+  const VALID = ['credit_card','mortgage','auto','personal_loan','student_loan','other'];
+  if (!VALID.includes(dt)) dt = 'credit_card';
 
   // Collapse existing cards before adding the new one (so new card stays open)
   if (debts.length > 0) collapseAllDebts();
@@ -343,7 +368,7 @@ function addDebt(pre = {}) {
   // Show hint immediately without waiting for run()
   const hintEl = document.getElementById('debtHint-' + id);
   const newDebt = debts[debts.length - 1];
-  if (hintEl) hintEl.style.display = (newDebt.balance <= 0 || newDebt.apr === null) ? 'block' : 'none';
+  if (hintEl) hintEl.style.display = isDebtComplete(newDebt) ? 'none' : 'block';
 
   renumber();
   bump();
@@ -361,7 +386,7 @@ function renumber() {
   document.querySelectorAll('.debt-card-name').forEach((el, i) => el.textContent = 'Debt ' + (i + 1));
 }
 
-const TYPE_LABELS = { credit_card: 'Credit Card', loan: 'Loan', student_loan: 'Student Loan', other: 'Other' };
+const TYPE_LABELS = { credit_card: 'Credit Card', mortgage: 'Mortgage', auto: 'Auto Loan', personal_loan: 'Personal Loan', student_loan: 'Student Loan', other: 'Other' };
 
 function updateDebtSummary(id) {
   const debt = debts.find(d => d.id === id);
@@ -609,7 +634,7 @@ function showRecommendation(eid) {
 
   if (!ex.targetId || ex.amount <= 0) { rec.className = 'extra-rec'; return; }
 
-  const validDebts = debts.filter(d => d.balance > 0 && (d.apr > 0 || d.debtType === 'credit_card'));
+  const validDebts = debts.filter(d => d.balance > 0 && (d.apr > 0 || d.debtType === 'credit_card') && (!FIXED_PAYMENT_TYPES.has(d.debtType) || d.monthlyPayment > 0));
   if (validDebts.length <= 1) { rec.className = 'extra-rec'; return; }
 
   const chosenDebt = validDebts.find(d => d.id == ex.targetId);
@@ -1289,7 +1314,7 @@ function renderRecoveryNotice(missing) {
 }
 
 function run() {
-  const valid = debts.filter(d => d.balance > 0 && d.apr !== null);
+  const valid = debts.filter(isDebtComplete);
   const hasData = valid.length > 0 && monthlyBudget > 0;
   refreshExtraTargets();
 
@@ -1325,7 +1350,7 @@ function run() {
   debts.forEach(d => {
     const hintEl = document.getElementById('debtHint-' + d.id);
     if (!hintEl) return;
-    hintEl.style.display = (d.balance <= 0 || d.apr === null) ? 'block' : 'none';
+    hintEl.style.display = isDebtComplete(d) ? 'none' : 'block';
   });
 
   if (!hasData) {

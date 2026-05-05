@@ -21,10 +21,12 @@ function decodeState() {
 
     const normalizeType = t => {
       if (!t || t === 'card') return 'credit_card';
-      if (['personal_loan','auto','mortgage','bnpl','tax'].includes(t)) return 'loan';
+      if (t === 'loan') return 'personal_loan';            // legacy single "loan" bucket
+      if (['bnpl','tax'].includes(t)) return 'personal_loan';
       if (['student_private','student_federal'].includes(t)) return 'student_loan';
       if (['medical','collections'].includes(t)) return 'other';
-      return ['credit_card','loan','student_loan','other'].includes(t) ? t : 'credit_card';
+      const VALID = ['credit_card','mortgage','auto','personal_loan','student_loan','other'];
+      return VALID.includes(t) ? t : 'credit_card';
     };
 
     if (raw.v === 4 && Array.isArray(raw.d)) {
