@@ -64,7 +64,7 @@ const DEBT_TYPES = [
 ];
 
 // Types that have a contractual fixed monthly payment — payment field is required
-const FIXED_PAYMENT_TYPES = new Set(['mortgage', 'auto', 'personal_loan']);
+const FIXED_PAYMENT_TYPES = new Set(['mortgage', 'auto', 'personal_loan', 'student_loan']);
 
 // Single source of truth: a debt is "complete" enough to simulate when…
 function isDebtComplete(d) {
@@ -119,22 +119,7 @@ function makeCard(id) {
           <input type="text" placeholder="e.g. Chase Visa" data-field="name" data-id="${id}">
         </div>
       </div>
-      <div class="field-row" id="balanceRow-${id}">
-        <div class="field">
-          <label>Balance owed</label>
-          <div class="input-wrap has-prefix">
-            <span class="input-prefix">$</span>
-            <input type="text" inputmode="decimal" placeholder="5,000" data-field="balance" data-id="${id}" autocomplete="off">
-          </div>
-        </div>
-        <div class="field" id="aprField-${id}">
-          <label>APR</label>
-          <div class="input-wrap has-suffix">
-            <input type="text" inputmode="decimal" placeholder="19.9" data-field="apr" data-id="${id}">
-            <span class="input-suffix">%</span>
-          </div>
-        </div>
-      </div>
+      <div id="balanceArea-${id}"></div>
       <div id="balanceError-${id}" style="display:none;font-size:12px;color:#b85c2a;margin-top:4px">Please enter a number from 1–10,000,000</div>
       <div class="debt-callout" id="callout-${id}"></div>
       <div class="past-due-section">
@@ -190,29 +175,18 @@ function updateCardForType(id, type) {
   if (!debt) return;
   const calloutEl      = document.getElementById('callout-' + id);
   const bottomFieldsEl = document.getElementById('bottomFields-' + id);
-  const aprFieldEl     = document.getElementById('aprField-' + id);
   if (!calloutEl) return;
 
-  // Reset APR field
-  const aprInput2 = aprFieldEl?.querySelector('input');
-  if (aprInput2) { aprInput2.disabled = false; aprInput2.style.opacity = ''; }
+  // Drop monthlyPayment from state if switching to a type that doesn't use it
+  if (!FIXED_PAYMENT_TYPES.has(type) && debt.monthlyPayment) {
+    debt.monthlyPayment = 0;
+  }
 
-  // Clear bottom slot; repopulate below if needed
+  // Render balance/APR/payment rows for the chosen type
+  renderBalanceArea(id, type, debt);
+
+  // Clear bottom slot; repopulate below if needed (student loan toggle)
   if (bottomFieldsEl) bottomFieldsEl.innerHTML = '';
-
-  // Required fixed-payment field — shown for mortgage/auto/personal_loan
-  const placeholderByType = { mortgage: 'e.g. 1,995', auto: 'e.g. 387', personal_loan: 'e.g. 250' };
-  const paymentFieldHtml = FIXED_PAYMENT_TYPES.has(type) ? `
-    <div class="field-row" style="margin-top:10px">
-      <div class="field">
-        <label>Monthly payment</label>
-        <div class="input-wrap has-prefix">
-          <span class="input-prefix">$</span>
-          <input type="text" inputmode="decimal" placeholder="${placeholderByType[type] || 'e.g. 250'}" data-field="monthlyPayment" data-id="${id}" autocomplete="off">
-        </div>
-        <div class="field-hint" style="font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.4">Your contractual monthly payment.</div>
-      </div>
-    </div>` : '';
 
   switch (type) {
     case 'student_loan': {
@@ -233,28 +207,58 @@ function updateCardForType(id, type) {
       }
       break;
     }
-    case 'mortgage':
-    case 'auto':
-    case 'personal_loan': {
-      if (bottomFieldsEl) bottomFieldsEl.innerHTML = paymentFieldHtml;
-      calloutEl.className = 'debt-callout';
-      calloutEl.innerHTML = '';
-      break;
-    }
     default:
       calloutEl.className = 'debt-callout';
       calloutEl.innerHTML = '';
   }
-  // Restore monthlyPayment input value if the debt has one
-  const mpEl = bottomFieldsEl?.querySelector('[data-field="monthlyPayment"]');
-  if (mpEl && debt.monthlyPayment) mpEl.value = normalizeDollarInput(debt.monthlyPayment);
-
-  // Drop monthlyPayment from state if user switched to a type that doesn't use it
-  if (!FIXED_PAYMENT_TYPES.has(type) && debt.monthlyPayment) {
-    debt.monthlyPayment = 0;
-  }
 
   updateCardPlaceholders(id, type);
+}
+
+// Paints the balance/APR/payment field rows. For fixed-payment types, balance
+// gets its own full-width row and APR + Monthly payment share the next row.
+function renderBalanceArea(id, type, debt) {
+  const area = document.getElementById('balanceArea-' + id);
+  if (!area) return;
+  const isFixed = FIXED_PAYMENT_TYPES.has(type);
+  const placeholderByType = { mortgage: 'e.g. 1,995', auto: 'e.g. 387', personal_loan: 'e.g. 250', student_loan: 'e.g. 250' };
+  const balField = `
+    <div class="field">
+      <label>Balance owed</label>
+      <div class="input-wrap has-prefix">
+        <span class="input-prefix">$</span>
+        <input type="text" inputmode="decimal" placeholder="5,000" data-field="balance" data-id="${id}" autocomplete="off">
+      </div>
+    </div>`;
+  const aprField = `
+    <div class="field">
+      <label>APR</label>
+      <div class="input-wrap has-suffix">
+        <input type="text" inputmode="decimal" placeholder="19.9" data-field="apr" data-id="${id}">
+        <span class="input-suffix">%</span>
+      </div>
+    </div>`;
+  const paymentField = `
+    <div class="field">
+      <label>Monthly payment</label>
+      <div class="input-wrap has-prefix">
+        <span class="input-prefix">$</span>
+        <input type="text" inputmode="decimal" placeholder="${placeholderByType[type] || 'e.g. 250'}" data-field="monthlyPayment" data-id="${id}" autocomplete="off">
+      </div>
+    </div>`;
+
+  area.innerHTML = isFixed
+    ? `<div class="field-row full">${balField}</div>
+       <div class="field-row" style="margin-top:10px">${aprField}${paymentField}</div>`
+    : `<div class="field-row">${balField}${aprField}</div>`;
+
+  // Restore values from state
+  const balEl = area.querySelector('[data-field="balance"]');
+  if (balEl && debt.balance) balEl.value = normalizeDollarInput(debt.balance);
+  const aprEl = area.querySelector('[data-field="apr"]');
+  if (aprEl && debt.apr != null) aprEl.value = debt.apr;
+  const mpEl = area.querySelector('[data-field="monthlyPayment"]');
+  if (mpEl && debt.monthlyPayment) mpEl.value = normalizeDollarInput(debt.monthlyPayment);
 }
 
 function updateCardPlaceholders(id, type) {
@@ -1365,7 +1369,7 @@ function run() {
     // right panel resizes back to its natural (empty-state) height.
     const missing = [];
     if (monthlyBudget <= 0) missing.push({ id: 'commit', label: 'Add a monthly commitment to see your plan.' });
-    if (valid.length === 0) missing.push({ id: 'debts', label: 'Add a balance and APR for at least one debt.' });
+    if (valid.length === 0) missing.push({ id: 'debts', label: 'Fill in every field for at least one debt.' });
 
     if (recoveryBlock) {
       const key = missing.map(m => m.id).join(',');
