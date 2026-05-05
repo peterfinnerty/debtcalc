@@ -1083,6 +1083,11 @@
       /* Page gutters */
       .left-panel, .right-panel { padding: 16px; }
 
+      /* Student loan cards: give the Federal/Private toggle more breathing
+         room from the APR/payment row above and the More toggle below. */
+      [id^="bottomFields-"] .plan-toggle { margin-top: 16px !important; }
+      .more-section:not(.past-due-only) { margin-top: 12px; }
+
       /* Empty-state card. Reserve space for the fixed calc CTA only when it's
          actually visible — otherwise the card has dead space below the checklist. */
       .empty-card { padding: 20px; }
