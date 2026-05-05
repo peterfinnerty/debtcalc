@@ -8,3 +8,12 @@
     document.querySelectorAll('.btn-back').forEach(a => { a.href = url; });
   } catch (_) {}
 })();
+
+// "simplifications" disclosure toggle on how-it-works.html
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-action="toggle-simp"]');
+  if (!t) return;
+  e.preventDefault();
+  const list = t.closest('.other-card')?.querySelector('.simp-list');
+  if (list) list.hidden = !list.hidden;
+});
