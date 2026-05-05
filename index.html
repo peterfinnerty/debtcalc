@@ -90,8 +90,9 @@
       flex-shrink: 0;
     }
     .logo-mark svg { width: 36px; height: 36px; }
-    header h1 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; min-width: 0; }
+    header h1 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; }
     header h1 span { color: var(--text-muted); font-weight: 400; }
+    @media (max-width: 860px) { header h1 span { display: none; } }
     .header-share {
       padding: 8px 18px; border-radius: 99px;
       background: var(--green); color: white; border: 1px solid transparent;
