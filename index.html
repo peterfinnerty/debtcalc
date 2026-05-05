@@ -1006,11 +1006,29 @@
       .cl-label { white-space: normal; font-size: 14px; line-height: 1.35; }
       .cl-label-wrap { width: auto; }
 
+      /* Strikethrough: SVG can't span multiple lines, so on mobile use native
+         text-decoration which renders on each line of wrapped text. */
+      .cl-scratch { display: none; }
+      .cl-label {
+        background-image: none;
+        background-repeat: repeat-x;
+        background-position: 0 60%;
+        background-size: 60px 14px;
+        -webkit-box-decoration-break: clone;
+        box-decoration-break: clone;
+        transition: color 240ms ease;
+      }
+      .cl-done .cl-label {
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 14' preserveAspectRatio='none'><path d='M2,7 C12,2 18,12 30,7 C42,2 48,12 58,7' fill='none' stroke='%23D97742' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+      }
+
       /* Page gutters */
       .left-panel, .right-panel { padding: 16px; }
 
-      /* Empty-state card */
-      .empty-card { padding: 20px; padding-bottom: 100px; }
+      /* Empty-state card. Reserve space for the fixed calc CTA only when it's
+         actually visible — otherwise the card has dead space below the checklist. */
+      .empty-card { padding: 20px; }
+      .empty-card:has(#calcBtn[style*="inline-flex"]) { padding-bottom: 100px; }
 
       /* Sticky bottom calc CTA — only when #calcBtn is visible (pre-reveal) */
       #calcBtn {
