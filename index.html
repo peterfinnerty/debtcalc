@@ -492,13 +492,20 @@
       background: #FFFFFF;
       border: 1px solid #E5DDCD;
       border-radius: 14px;
-      padding: 40px 36px;
+      padding: 40px 36px 12px;
       text-align: center;
       width: 520px;
       max-width: 100%;
     }
     .empty-icon { display: flex; justify-content: center; margin-bottom: 14px; }
     .empty-title { font-size: 18px; font-weight: 600; color: #1A1815; margin: 0 0 22px; }
+    .empty-privacy {
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+      margin-top: 16px;
+      font-size: 11px; color: var(--text-muted);
+      opacity: 0.7;
+    }
+    .empty-privacy svg { flex-shrink: 0; }
 
     /* Animated checklist */
     .checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; text-align: left; }
@@ -1333,6 +1340,13 @@
           <span>See my path to zero</span>
           <span class="calc-arrow" aria-hidden="true">→</span>
         </button>
+        <div class="empty-privacy" aria-label="Privacy">
+          <svg width="10" height="12" viewBox="0 0 10 12" fill="none" aria-hidden="true">
+            <rect x="1.25" y="5" width="7.5" height="6" rx="1.2" stroke="currentColor" stroke-width="1" fill="none"/>
+            <path d="M3 5V3.25a2 2 0 0 1 4 0V5" stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="round"/>
+          </svg>
+          <span>We don't save your data</span>
+        </div>
       </div>
     </div>
 
