@@ -267,10 +267,9 @@
     /* Wider gap between paired fields in debt cards so inputs aren't so wide */
     .debt-card .field-row { gap: 16px; }
 
-    /* Repayment date + Accruing toggle aligned in height with extra horizontal gap */
+    /* Repayment date + Accruing toggle: extra horizontal gap, no extra bottom margin */
     .deferment-row { gap: 16px; }
     .deferment-row .plan-toggle { margin-bottom: 0; }
-    .deferment-row .plan-btn { padding: 6px 0; font-size: 0.78rem; }
     .more-toggle {
       display: flex; align-items: center; justify-content: center; gap: 4px;
       margin: 0 auto;
@@ -333,8 +332,9 @@
     }
 
     /* Plan toggle (federal loan) */
-    .plan-toggle { display: flex; border: 1px solid var(--border); border-radius: 99px; overflow: hidden; margin-bottom: 8px; }
-    .plan-btn { flex: 1; padding: 5px 0; border: none; background: none; font-size: 0.72rem; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all var(--transition); }
+    .plan-toggle { display: flex; align-items: stretch; min-height: 30px; border: 1px solid var(--border); border-radius: 99px; overflow: hidden; margin-bottom: 8px; }
+    .plan-btn { flex: 1; padding: 6px 0; border: none; background: none; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all var(--transition); line-height: 1.15; }
+    .plan-btn .info-icon { width: 13px; height: 13px; font-size: 0.55rem; }
     .plan-btn.active { background: var(--text); color: white; border-radius: 99px; }
 
     /* Warnings panel */
