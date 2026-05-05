@@ -67,6 +67,21 @@ function monthsLabel(m) {
 }
 
 // ==========================================================
+//  TYPE NORMALIZATION (shared by app.js and amortization.js)
+// ==========================================================
+// Map legacy / alternative debtType values to the current 6-type system.
+// Old saved URL hashes still need to decode correctly.
+function normalizeType(t) {
+  if (!t || t === 'card') return 'credit_card';
+  if (t === 'loan') return 'personal_loan';                       // legacy single "loan" bucket
+  if (t === 'bnpl' || t === 'tax') return 'personal_loan';
+  if (t === 'student_private' || t === 'student_federal') return 'student_loan';
+  if (t === 'medical' || t === 'collections') return 'other';
+  const VALID = ['credit_card','mortgage','auto','personal_loan','student_loan','other'];
+  return VALID.includes(t) ? t : 'credit_card';
+}
+
+// ==========================================================
 //  SIMULATION HELPERS
 // ==========================================================
 

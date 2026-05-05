@@ -19,16 +19,6 @@ function decodeState() {
     let idCounter = 0;
     let monthlyBudget = 0;
 
-    const normalizeType = t => {
-      if (!t || t === 'card') return 'credit_card';
-      if (t === 'loan') return 'personal_loan';            // legacy single "loan" bucket
-      if (['bnpl','tax'].includes(t)) return 'personal_loan';
-      if (['student_private','student_federal'].includes(t)) return 'student_loan';
-      if (['medical','collections'].includes(t)) return 'other';
-      const VALID = ['credit_card','mortgage','auto','personal_loan','student_loan','other'];
-      return VALID.includes(t) ? t : 'credit_card';
-    };
-
     if (raw.v === 4 && Array.isArray(raw.d)) {
       monthlyBudget = raw.mb || 0;
       raw.d.forEach(d => debts.push({

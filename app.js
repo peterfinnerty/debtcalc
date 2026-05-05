@@ -414,14 +414,7 @@ function setStudentLoanType(id, lt) {
 function addDebt(pre = {}) {
   const id = ++debtId;
   // Map legacy type values to current 6-type system
-  let dt = pre.debtType || 'credit_card';
-  if (dt === 'card') dt = 'credit_card';
-  if (dt === 'loan') dt = 'personal_loan';            // legacy single "loan" bucket
-  if (['bnpl','tax'].includes(dt)) dt = 'personal_loan';
-  if (dt === 'student_private' || dt === 'student_federal') dt = 'student_loan';
-  if (dt === 'medical' || dt === 'collections') dt = 'other';
-  const VALID = ['credit_card','mortgage','auto','personal_loan','student_loan','other'];
-  if (!VALID.includes(dt)) dt = 'credit_card';
+  const dt = normalizeType(pre.debtType);
 
   // Collapse existing cards before adding the new one (so new card stays open)
   if (debts.length > 0) collapseAllDebts();
@@ -607,7 +600,25 @@ function onDefermentDateChange(id) {
   const monthSel = document.querySelector(`[data-field="defermentMonth"][data-id="${id}"]`);
   const yearSel = document.querySelector(`[data-field="defermentYear"][data-id="${id}"]`);
   if (monthSel?.value && yearSel?.value) {
-    debt.defermentUntil = `${yearSel.value}-${monthSel.value}`;
+    // Clamp to next month if user picks a date in the past or current month —
+    // the simulator only treats months STRICTLY in the future as deferred,
+    // so a past selection would silently disable deferment with the toggle still on.
+    const now = new Date();
+    const earliestY = now.getFullYear();
+    const earliestM = now.getMonth() + 2; // next month, 1-indexed (getMonth is 0-indexed; +1 = current, +2 = next)
+    let y = +yearSel.value;
+    let m = +monthSel.value;
+    const cmp = y * 100 + m;
+    const minCmp = (earliestM > 12 ? earliestY + 1 : earliestY) * 100 + (earliestM > 12 ? earliestM - 12 : earliestM);
+    if (cmp < minCmp) {
+      const ey = earliestM > 12 ? earliestY + 1 : earliestY;
+      const em = earliestM > 12 ? earliestM - 12 : earliestM;
+      y = ey;
+      m = em;
+      yearSel.value = String(ey);
+      monthSel.value = String(em).padStart(2, '0');
+    }
+    debt.defermentUntil = `${y}-${String(m).padStart(2, '0')}`;
   } else {
     debt.defermentUntil = '';
   }
