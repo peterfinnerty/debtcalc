@@ -480,10 +480,20 @@ function addDebt(pre = {}) {
     document.getElementById('moreSection-' + id)?.classList.add('open');
   }
 
-  // Show hint immediately without waiting for run()
+  // Hint stays hidden until the user has interacted and clicked off an incomplete card
   const hintEl = document.getElementById('debtHint-' + id);
   const newDebt = debts[debts.length - 1];
-  if (hintEl) hintEl.style.display = isDebtComplete(newDebt) ? 'none' : 'block';
+  if (hintEl) hintEl.style.display = 'none';
+
+  // Mark the card as "blurred" once focus moves outside it — that's when the hint gets to fire
+  card.addEventListener('focusout', e => {
+    if (card.contains(e.relatedTarget)) return;
+    const debt = debts.find(d => d.id === id);
+    if (!debt) return;
+    debt._blurred = true;
+    const h = document.getElementById('debtHint-' + id);
+    if (h) h.style.display = isDebtComplete(debt) ? 'none' : 'block';
+  });
 
   renumber();
   bump();
@@ -1484,7 +1494,8 @@ function run() {
   debts.forEach(d => {
     const hintEl = document.getElementById('debtHint-' + d.id);
     if (!hintEl) return;
-    hintEl.style.display = isDebtComplete(d) ? 'none' : 'block';
+    // Only nag once the user has tabbed/clicked off an incomplete card
+    hintEl.style.display = (isDebtComplete(d) || !d._blurred) ? 'none' : 'block';
   });
 
   if (!hasData) {
