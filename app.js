@@ -277,7 +277,7 @@ function renderMoreBody(id, type, debt) {
     <div class="field-row">
       <div class="field">
         <label>Months past due</label>
-        <input type="number" placeholder="1" data-field="monthsPastDue" data-id="${id}" min="0" step="1">
+        <input type="number" placeholder="0" data-field="monthsPastDue" data-id="${id}" min="0" step="1">
       </div>
       <div class="field">
         <label>Past due amount</label>
