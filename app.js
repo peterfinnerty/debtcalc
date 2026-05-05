@@ -190,6 +190,11 @@ function updateCardForType(id, type) {
   // Render the body of the "More" section (different content per type)
   renderMoreBody(id, type, debt);
 
+  // Non-student cards get a bit more breathing room above the toggle
+  // (and less padding below) since the More body is just past-due fields
+  const moreSec = document.getElementById('moreSection-' + id);
+  if (moreSec) moreSec.classList.toggle('past-due-only', type !== 'student_loan');
+
   // Clear bottom slot; repopulate below if needed (student loan toggle)
   if (bottomFieldsEl) bottomFieldsEl.innerHTML = '';
 
@@ -289,23 +294,29 @@ function renderMoreBody(id, type, debt) {
     </div>`;
 
   if (type === 'student_loan') {
+    const status = debt.pastDue ? 'pastDue' : (debt.deferment ? 'deferment' : 'current');
+    const monthOpts = ['Month','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+      .map((label, i) => `<option value="${i === 0 ? '' : String(i).padStart(2, '0')}">${label}</option>`).join('');
+    const nowYear = new Date().getFullYear();
+    const yearOpts = ['<option value="">Year</option>']
+      .concat(Array.from({ length: 2099 - nowYear + 1 }, (_, i) => `<option value="${nowYear + i}">${nowYear + i}</option>`))
+      .join('');
+
     slot.innerHTML = `
-      <div class="status-toggles" style="display:flex;gap:18px;flex-wrap:wrap">
-        <label class="past-due-toggle-label">
-          <input type="checkbox" data-field="pastDue" data-id="${id}">
-          <span>Past due?</span>
-        </label>
-        <label class="past-due-toggle-label">
-          <input type="checkbox" data-field="deferment" data-id="${id}">
-          <span>In deferment?</span>
-        </label>
+      <div class="status-radios">
+        <label class="status-radio"><input type="radio" name="studentStatus-${id}" data-field="studentStatus" data-id="${id}" value="current"${status==='current'?' checked':''}><span>Current</span></label>
+        <label class="status-radio"><input type="radio" name="studentStatus-${id}" data-field="studentStatus" data-id="${id}" value="pastDue"${status==='pastDue'?' checked':''}><span>Past due</span></label>
+        <label class="status-radio"><input type="radio" name="studentStatus-${id}" data-field="studentStatus" data-id="${id}" value="deferment"${status==='deferment'?' checked':''}><span>In deferment</span></label>
       </div>
-      <div id="pastDueFields-${id}" style="display:none;margin-top:8px">${pastDueFieldsHtml}</div>
-      <div id="defermentFields-${id}" style="display:none;margin-top:8px">
-        <div class="field-row">
+      <div id="pastDueFields-${id}" style="display:${status==='pastDue'?'':'none'};margin-top:10px">${pastDueFieldsHtml}</div>
+      <div id="defermentFields-${id}" style="display:${status==='deferment'?'':'none'};margin-top:10px">
+        <div class="field-row deferment-row">
           <div class="field">
             <label>Repayment starts</label>
-            <input type="month" data-field="defermentUntil" data-id="${id}">
+            <div class="date-picker">
+              <select data-field="defermentMonth" data-id="${id}" class="date-month">${monthOpts}</select>
+              <select data-field="defermentYear" data-id="${id}" class="date-year">${yearOpts}</select>
+            </div>
           </div>
           <div class="field">
             <label>Accruing? <span class="info-tooltip" data-tip="Most loans accrue interest during deferment, which then capitalizes (gets added to principal) when repayment starts. Subsidized federal loans typically don't accrue."><i class="info-icon">i</i></span></label>
@@ -317,18 +328,14 @@ function renderMoreBody(id, type, debt) {
         </div>
       </div>`;
 
-    // Restore checkbox + expanded states
-    if (debt.pastDue) {
-      slot.querySelector('[data-field="pastDue"]').checked = true;
-      slot.querySelector(`#pastDueFields-${id}`).style.display = '';
-    }
-    if (debt.deferment) {
-      slot.querySelector('[data-field="deferment"]').checked = true;
-      slot.querySelector(`#defermentFields-${id}`).style.display = '';
-    }
+    // Restore field values
     if (debt.monthsPastDue) slot.querySelector('[data-field="monthsPastDue"]').value = debt.monthsPastDue;
     if (debt.pastDueAmount) slot.querySelector('[data-field="pastDueAmount"]').value = normalizeDollarInput(debt.pastDueAmount);
-    if (debt.defermentUntil) slot.querySelector('[data-field="defermentUntil"]').value = debt.defermentUntil;
+    if (debt.defermentUntil) {
+      const [y, m] = debt.defermentUntil.split('-');
+      slot.querySelector('[data-field="defermentMonth"]').value = m || '';
+      slot.querySelector('[data-field="defermentYear"]').value = y || '';
+    }
   } else {
     // Non-student loans: past-due fields shown directly, no checkbox
     slot.innerHTML = pastDueFieldsHtml;
@@ -354,54 +361,32 @@ function updateCardPlaceholders(id, type) {
   if (aprEl)  aprEl.placeholder  = cfg.apr;
 }
 
-function onPastDueChange(id) {
+function setStudentStatus(id, status) {
   const debt = debts.find(d => d.id === id);
   if (!debt) return;
-  const cb = document.querySelector(`[data-field="pastDue"][data-id="${id}"]`);
-  debt.pastDue = !!cb?.checked;
+  debt.pastDue = status === 'pastDue';
+  debt.deferment = status === 'deferment';
   if (!debt.pastDue) { debt.monthsPastDue = 0; debt.pastDueAmount = 0; }
-  const fields = document.getElementById('pastDueFields-' + id);
-  if (fields) fields.style.display = debt.pastDue ? '' : 'none';
-  // Mutex: clear deferment if past due is checked
-  if (debt.pastDue && debt.deferment) {
-    debt.deferment = false;
-    debt.defermentUntil = '';
-    const defCb = document.querySelector(`[data-field="deferment"][data-id="${id}"]`);
-    if (defCb) defCb.checked = false;
-    const defFields = document.getElementById('defermentFields-' + id);
-    if (defFields) defFields.style.display = 'none';
-  }
-  bump();
-}
-
-function onDefermentChange(id) {
-  const debt = debts.find(d => d.id === id);
-  if (!debt) return;
-  const cb = document.querySelector(`[data-field="deferment"][data-id="${id}"]`);
-  debt.deferment = !!cb?.checked;
   if (!debt.deferment) { debt.defermentUntil = ''; }
-  const fields = document.getElementById('defermentFields-' + id);
-  if (fields) fields.style.display = debt.deferment ? '' : 'none';
-  // Default Accruing? to Yes when first turning deferment on
+  // Default Accruing? to Yes when deferment is first turned on
   if (debt.deferment && debt.defermentAccruing === undefined) debt.defermentAccruing = true;
-  // Default Repayment starts to 6 months from now if blank
+  // Default Repayment starts to 6 months from now when first entering deferment
   if (debt.deferment && !debt.defermentUntil) {
     const d = new Date();
     d.setMonth(d.getMonth() + 6);
-    const yyyymm = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-    debt.defermentUntil = yyyymm;
-    const dInput = document.querySelector(`[data-field="defermentUntil"][data-id="${id}"]`);
-    if (dInput) dInput.value = yyyymm;
+    debt.defermentUntil = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
   }
-  // Mutex: clear past due if deferment is checked
-  if (debt.deferment && debt.pastDue) {
-    debt.pastDue = false;
-    debt.monthsPastDue = 0;
-    debt.pastDueAmount = 0;
-    const pdCb = document.querySelector(`[data-field="pastDue"][data-id="${id}"]`);
-    if (pdCb) pdCb.checked = false;
-    const pdFields = document.getElementById('pastDueFields-' + id);
-    if (pdFields) pdFields.style.display = 'none';
+  // Reflect state in the DOM
+  const pdFields = document.getElementById('pastDueFields-' + id);
+  const defFields = document.getElementById('defermentFields-' + id);
+  if (pdFields) pdFields.style.display = debt.pastDue ? '' : 'none';
+  if (defFields) defFields.style.display = debt.deferment ? '' : 'none';
+  if (debt.deferment) {
+    const [y, m] = debt.defermentUntil.split('-');
+    const monthSel = document.querySelector(`[data-field="defermentMonth"][data-id="${id}"]`);
+    const yearSel = document.querySelector(`[data-field="defermentYear"][data-id="${id}"]`);
+    if (monthSel) monthSel.value = m || '';
+    if (yearSel) yearSel.value = y || '';
   }
   bump();
 }
@@ -593,8 +578,8 @@ document.getElementById('debtsList').addEventListener('input', e => {
   } else if (field === 'apr') {
     el.value = normalizeAprInput(el.value);
     debt.apr = el.value.trim() !== '' ? (parseFloat(el.value) || 0) : null;
-  } else if (field === 'defermentUntil') {
-    debt.defermentUntil = el.value;
+  } else if (field === 'defermentMonth' || field === 'defermentYear') {
+    return; // handled by change delegation (combined into defermentUntil)
   } else {
     debt[field] = parseFloat(el.value) || 0;
   }
@@ -612,9 +597,22 @@ document.getElementById('debtsList').addEventListener('change', e => {
   const field = el.dataset.field;
   if (!field || !id) return;
   if (field === 'debtType') onTypeChange(id);
-  else if (field === 'pastDue') onPastDueChange(id);
-  else if (field === 'deferment') onDefermentChange(id);
+  else if (field === 'studentStatus') setStudentStatus(id, el.value);
+  else if (field === 'defermentMonth' || field === 'defermentYear') onDefermentDateChange(id);
 });
+
+function onDefermentDateChange(id) {
+  const debt = debts.find(d => d.id === id);
+  if (!debt) return;
+  const monthSel = document.querySelector(`[data-field="defermentMonth"][data-id="${id}"]`);
+  const yearSel = document.querySelector(`[data-field="defermentYear"][data-id="${id}"]`);
+  if (monthSel?.value && yearSel?.value) {
+    debt.defermentUntil = `${yearSel.value}-${monthSel.value}`;
+  } else {
+    debt.defermentUntil = '';
+  }
+  bump();
+}
 
 // Click delegation for debt card actions
 document.getElementById('debtsList').addEventListener('click', e => {

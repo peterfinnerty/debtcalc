@@ -241,6 +241,36 @@
 
     /* Collapsible "More" section (past due + deferment) */
     .more-section { margin-top: 6px; }
+    .more-section.past-due-only { margin-top: 16px; }
+    .more-section.past-due-only .more-toggle { padding-bottom: 0; }
+    .more-section.past-due-only.open .more-body { padding-top: 6px; }
+
+    /* Centered radio row for student loan status */
+    .status-radios {
+      display: flex; justify-content: center; gap: 16px;
+      flex-wrap: wrap; padding: 2px 0 4px;
+    }
+    .status-radio {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
+      cursor: pointer;
+    }
+    .status-radio input[type="radio"] { width: 14px; height: 14px; cursor: pointer; flex-shrink: 0; accent-color: var(--green); }
+    .status-radio input[type="radio"]:checked + span { color: var(--text); }
+
+    /* Compact month + year dropdowns side-by-side, reading as one date entry */
+    .date-picker { display: flex; gap: 4px; }
+    .date-picker select { padding: 5px 22px 5px 8px; background-position: right 6px center; font-size: 0.85rem; }
+    .date-picker .date-month { flex: 1; }
+    .date-picker .date-year  { flex: 1; }
+
+    /* Wider gap between paired fields in debt cards so inputs aren't so wide */
+    .debt-card .field-row { gap: 16px; }
+
+    /* Repayment date + Accruing toggle aligned in height with extra horizontal gap */
+    .deferment-row { gap: 16px; }
+    .deferment-row .plan-toggle { margin-bottom: 0; }
+    .deferment-row .plan-btn { padding: 6px 0; font-size: 0.78rem; }
     .more-toggle {
       display: flex; align-items: center; justify-content: center; gap: 4px;
       margin: 0 auto;
@@ -1431,7 +1461,7 @@
   </div>
 </div>
 
-<script src="app.js?v=52"></script>
+<script src="app.js?v=55"></script>
 <div id="infoTooltip"></div>
 </body>
 </html>
