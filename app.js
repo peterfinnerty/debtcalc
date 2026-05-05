@@ -71,6 +71,12 @@ function isDebtComplete(d) {
   if (!(d.balance > 0)) return false;
   if (d.apr === null) return false;
   if (FIXED_PAYMENT_TYPES.has(d.debtType) && !(d.monthlyPayment > 0)) return false;
+  // Non-student loans: if either past-due field is filled, both must be
+  if (d.debtType !== 'student_loan') {
+    const hasMpd = (d.monthsPastDue || 0) > 0;
+    const hasPda = (d.pastDueAmount || 0) > 0;
+    if (hasMpd !== hasPda) return false;
+  }
   return true;
 }
 
@@ -131,46 +137,7 @@ function makeCard(id) {
           </svg>
         </button>
         <div class="more-body">
-          <div class="status-toggles" style="display:flex;gap:18px;flex-wrap:wrap">
-            <label class="past-due-toggle-label">
-              <input type="checkbox" data-field="pastDue" data-id="${id}">
-              <span>Past due?</span>
-            </label>
-            <label class="past-due-toggle-label" id="defermentToggle-${id}" style="display:none">
-              <input type="checkbox" data-field="deferment" data-id="${id}">
-              <span>In deferment?</span>
-            </label>
-          </div>
-          <div id="pastDueFields-${id}" style="display:none;margin-top:8px">
-            <div class="field-row">
-              <div class="field">
-                <label>Months past due</label>
-                <input type="number" placeholder="1" data-field="monthsPastDue" data-id="${id}" min="0" step="1">
-              </div>
-              <div class="field">
-                <label>Past due amount</label>
-                <div class="input-wrap has-prefix">
-                  <span class="input-prefix">$</span>
-                  <input type="text" inputmode="decimal" placeholder="0" data-field="pastDueAmount" data-id="${id}" autocomplete="off">
-                </div>
-              </div>
-            </div>
-          </div>
-          <div id="defermentFields-${id}" style="display:none;margin-top:8px">
-            <div class="field-row">
-              <div class="field">
-                <label>Repayment starts</label>
-                <input type="month" data-field="defermentUntil" data-id="${id}">
-              </div>
-              <div class="field">
-                <label>Accruing? <span class="info-tooltip" data-tip="Most loans accrue interest during deferment, which then capitalizes (gets added to principal) when repayment starts. Subsidized federal loans typically don't accrue."><i class="info-icon">i</i></span></label>
-                <div class="plan-toggle">
-                  <button class="plan-btn active" data-action="set-defer-accruing" data-id="${id}" data-value="1">Yes</button>
-                  <button class="plan-btn" data-action="set-defer-accruing" data-id="${id}" data-value="0">No</button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <div id="moreBodyContent-${id}"></div>
         </div>
       </div>
       <div class="debt-hint" id="debtHint-${id}">Enter all details to include this debt</div>
@@ -214,19 +181,14 @@ function updateCardForType(id, type) {
   // Render balance/APR/payment rows for the chosen type
   renderBalanceArea(id, type, debt);
 
-  // Show deferment checkbox only for student loans
-  const defToggle = document.getElementById('defermentToggle-' + id);
-  if (defToggle) defToggle.style.display = (type === 'student_loan') ? '' : 'none';
-
   // If switching away from student_loan, clear any deferment state
   if (type !== 'student_loan' && debt.deferment) {
     debt.deferment = false;
     debt.defermentUntil = '';
-    const defCb = document.querySelector(`[data-field="deferment"][data-id="${id}"]`);
-    if (defCb) defCb.checked = false;
-    const defFields = document.getElementById('defermentFields-' + id);
-    if (defFields) defFields.style.display = 'none';
   }
+
+  // Render the body of the "More" section (different content per type)
+  renderMoreBody(id, type, debt);
 
   // Clear bottom slot; repopulate below if needed (student loan toggle)
   if (bottomFieldsEl) bottomFieldsEl.innerHTML = '';
@@ -298,6 +260,78 @@ function renderBalanceArea(id, type, debt) {
   if (aprEl && debt.apr != null) aprEl.value = debt.apr;
   const mpEl = area.querySelector('[data-field="monthlyPayment"]');
   if (mpEl && debt.monthlyPayment) mpEl.value = normalizeDollarInput(debt.monthlyPayment);
+}
+
+// Paints the body of the "More" section. Student loans get the past-due +
+// deferment checkbox flow (mutex). Other types show past-due fields directly.
+function renderMoreBody(id, type, debt) {
+  const slot = document.getElementById('moreBodyContent-' + id);
+  if (!slot) return;
+
+  const pastDueFieldsHtml = `
+    <div class="field-row">
+      <div class="field">
+        <label>Months past due</label>
+        <input type="number" placeholder="1" data-field="monthsPastDue" data-id="${id}" min="0" step="1">
+      </div>
+      <div class="field">
+        <label>Past due amount</label>
+        <div class="input-wrap has-prefix">
+          <span class="input-prefix">$</span>
+          <input type="text" inputmode="decimal" placeholder="0" data-field="pastDueAmount" data-id="${id}" autocomplete="off">
+        </div>
+      </div>
+    </div>`;
+
+  if (type === 'student_loan') {
+    slot.innerHTML = `
+      <div class="status-toggles" style="display:flex;gap:18px;flex-wrap:wrap">
+        <label class="past-due-toggle-label">
+          <input type="checkbox" data-field="pastDue" data-id="${id}">
+          <span>Past due?</span>
+        </label>
+        <label class="past-due-toggle-label">
+          <input type="checkbox" data-field="deferment" data-id="${id}">
+          <span>In deferment?</span>
+        </label>
+      </div>
+      <div id="pastDueFields-${id}" style="display:none;margin-top:8px">${pastDueFieldsHtml}</div>
+      <div id="defermentFields-${id}" style="display:none;margin-top:8px">
+        <div class="field-row">
+          <div class="field">
+            <label>Repayment starts</label>
+            <input type="month" data-field="defermentUntil" data-id="${id}">
+          </div>
+          <div class="field">
+            <label>Accruing? <span class="info-tooltip" data-tip="Most loans accrue interest during deferment, which then capitalizes (gets added to principal) when repayment starts. Subsidized federal loans typically don't accrue."><i class="info-icon">i</i></span></label>
+            <div class="plan-toggle">
+              <button class="plan-btn${debt.defermentAccruing!==false?' active':''}" data-action="set-defer-accruing" data-id="${id}" data-value="1">Yes</button>
+              <button class="plan-btn${debt.defermentAccruing===false?' active':''}" data-action="set-defer-accruing" data-id="${id}" data-value="0">No</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    // Restore checkbox + expanded states
+    if (debt.pastDue) {
+      slot.querySelector('[data-field="pastDue"]').checked = true;
+      slot.querySelector(`#pastDueFields-${id}`).style.display = '';
+    }
+    if (debt.deferment) {
+      slot.querySelector('[data-field="deferment"]').checked = true;
+      slot.querySelector(`#defermentFields-${id}`).style.display = '';
+    }
+    if (debt.monthsPastDue) slot.querySelector('[data-field="monthsPastDue"]').value = debt.monthsPastDue;
+    if (debt.pastDueAmount) slot.querySelector('[data-field="pastDueAmount"]').value = normalizeDollarInput(debt.pastDueAmount);
+    if (debt.defermentUntil) slot.querySelector('[data-field="defermentUntil"]').value = debt.defermentUntil;
+  } else {
+    // Non-student loans: past-due fields shown directly, no checkbox
+    slot.innerHTML = `
+      <div class="field-hint" style="font-size:11px;color:var(--text-muted);margin-bottom:6px">Past due (leave blank if not past due)</div>
+      ${pastDueFieldsHtml}`;
+    if (debt.monthsPastDue) slot.querySelector('[data-field="monthsPastDue"]').value = debt.monthsPastDue;
+    if (debt.pastDueAmount) slot.querySelector('[data-field="pastDueAmount"]').value = normalizeDollarInput(debt.pastDueAmount);
+  }
 }
 
 function updateCardPlaceholders(id, type) {
@@ -436,38 +470,13 @@ function addDebt(pre = {}) {
 
   if (pre.apr != null) { const a = card.querySelector('[data-field="apr"]'); if (a && !a.disabled) a.value = pre.apr; }
 
-  // Restore past due state
-  if (pre.pastDue) {
-    const cb = card.querySelector(`[data-field="pastDue"]`);
-    if (cb) cb.checked = true;
-    const fields = document.getElementById('pastDueFields-' + id);
-    if (fields) fields.style.display = '';
-    if (pre.monthsPastDue) {
-      const mpd = card.querySelector('[data-field="monthsPastDue"]');
-      if (mpd) mpd.value = pre.monthsPastDue;
-    }
-    if (pre.pastDueAmount) {
-      const pda = card.querySelector('[data-field="pastDueAmount"]');
-      if (pda) pda.value = normalizeDollarInput(pre.pastDueAmount);
-    }
-  }
-
-  // Restore deferment state
-  if (pre.deferment) {
-    const cb = card.querySelector(`[data-field="deferment"]`);
-    if (cb) cb.checked = true;
-    const fields = document.getElementById('defermentFields-' + id);
-    if (fields) fields.style.display = '';
-    const dInput = card.querySelector(`[data-field="defermentUntil"]`);
-    if (dInput && pre.defermentUntil) dInput.value = pre.defermentUntil;
-    // Sync Yes/No active state
-    document.querySelectorAll(`#defermentFields-${id} .plan-btn`).forEach(btn => {
-      btn.classList.toggle('active', (btn.dataset.value === '1') === !!debts[debts.length - 1].defermentAccruing);
-    });
-  }
+  // Past-due / deferment field restoration is handled by renderMoreBody during updateCardForType
 
   // Auto-open the More section if past due or deferment was preset
-  if (pre.pastDue || pre.deferment) {
+  // (or, for non-student loans, if either inline past-due field has a value)
+  const hasInlinePastDue = dt !== 'student_loan' &&
+    ((+pre.monthsPastDue || 0) > 0 || (+pre.pastDueAmount || 0) > 0);
+  if (pre.pastDue || pre.deferment || hasInlinePastDue) {
     document.getElementById('moreSection-' + id)?.classList.add('open');
   }
 
@@ -575,6 +584,10 @@ document.getElementById('debtsList').addEventListener('input', e => {
     debt.defermentUntil = el.value;
   } else {
     debt[field] = parseFloat(el.value) || 0;
+  }
+  // For non-student loans, derive pastDue boolean from the inline fields
+  if (debt.debtType !== 'student_loan' && (field === 'monthsPastDue' || field === 'pastDueAmount')) {
+    debt.pastDue = (debt.monthsPastDue || 0) > 0 && (debt.pastDueAmount || 0) > 0;
   }
   bump();
 });
