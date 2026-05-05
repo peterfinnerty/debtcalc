@@ -773,20 +773,16 @@ function removeExtra(eid) {
   bump();
 }
 
-const FREQ_ABBR = { daily:'/day', weekly:'/wk', monthly:'/mo', quarterly:'/qtr', biannually:'/6mo', yearly:'/yr', one_time:' one-time' };
+const FREQ_ABBR = { daily:'/day', weekly:'/wk', monthly:'/mo', quarterly:'/3mo', biannually:'/6mo', yearly:'/yr', one_time:' one-time' };
 
 function updateExtraSummary(eid) {
   const ex = extras.find(e => e.eid === eid);
   if (!ex) return;
   const amtEl = document.getElementById('extraSummaryAmt-' + eid);
   if (!amtEl) return;
-  const amt = ex.amount > 0 ? '$' + ex.amount.toLocaleString('en-US') + (FREQ_ABBR[ex.freq] || '') : 'Not set';
-  let target = 'Whatever is optimal';
-  if (ex.targetId) {
-    const debt = debts.find(d => d.id == ex.targetId);
-    if (debt) target = debt.name || ('Debt ' + (debts.indexOf(debt) + 1));
-  }
-  amtEl.textContent = ex.amount > 0 ? `${amt} · ${target}` : amt;
+  amtEl.textContent = ex.amount > 0
+    ? '$' + ex.amount.toLocaleString('en-US') + (FREQ_ABBR[ex.freq] || '')
+    : 'Not set';
 }
 
 function toggleExtra(eid) {

@@ -435,13 +435,15 @@
     .extra-card-header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
     .extra-card-label { font-size: 0.72rem; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: 0.06em; flex-shrink: 0; }
     .extra-card-summary {
-      display: none;
-      font-size: 0.78rem; color: var(--text);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+      display: none; align-items: center; min-width: 0; flex: 1;
+    }
+    .extra-summary-amount {
+      font-size: 0.875rem; font-weight: 700; color: var(--text);
+      white-space: nowrap; margin-left: auto;
     }
     .extra-card.collapsed { padding: 14px 16px; }
     .extra-card.collapsed .extra-card-header { margin-bottom: 0; }
-    .extra-card.collapsed .extra-card-summary { display: inline-block; }
+    .extra-card.collapsed .extra-card-summary { display: flex; }
     .extra-card.collapsed .extra-card-label { color: var(--text-muted); }
     .extra-card.collapsed .debt-chevron { transform: rotate(180deg); }
     .btn-add-extra {
@@ -1506,7 +1508,7 @@
   </div>
 </div>
 
-<script src="app.js?v=58"></script>
+<script src="app.js?v=59"></script>
 <div id="infoTooltip"></div>
 </body>
 </html>
