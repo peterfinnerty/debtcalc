@@ -164,6 +164,20 @@ function pastDuePriority(d) {
   return 2;
 }
 
+// Order in which floors get paid when budget is tight. Mortgages come first
+// (foreclosure is the highest-stakes outcome), then past-due debts (in order
+// of how far behind), then everything else current. Within a tier we keep
+// pool order so the user's input order acts as a stable tiebreak.
+function floorPriority(d) {
+  if (d.debtType === 'mortgage') return 0;
+  return 1 + pastDuePriority(d); // 1 (3+ mo past due) → 3 (current)
+}
+
+function floorSort(arr) {
+  // Stable sort by floor priority — items at the same priority keep input order
+  arr.sort((a, b) => floorPriority(a) - floorPriority(b));
+}
+
 function strategySort(arr, strategy) {
   arr.sort((a, b) => {
     const pa = pastDuePriority(a), pb = pastDuePriority(b);
@@ -213,9 +227,13 @@ function simulate(source, eb, strategy, monthlyBudget) {
     let rem = monthlyBudget + Math.max(0, eb.optimal)
       + (mo === 1 ? Math.max(0, eb.oneTime || 0) : 0);
 
-    // Pay floor on every active, non-deferred debt
-    for (const d of pool) {
-      if (d.b > 0 && rem > 0.005 && !isDeferred(d, mo)) {
+    // Pay floor on every active, non-deferred debt — sorted by safety priority
+    // (mortgage first, then past-due, then current) so when budget runs short
+    // the highest-stakes payments still get covered.
+    const floorOrdered = pool.filter(d => d.b > 0 && !isDeferred(d, mo));
+    floorSort(floorOrdered);
+    for (const d of floorOrdered) {
+      if (rem > 0.005) {
         const p = Math.min(getFloor(d), d.b, rem);
         d.b -= p;
         rem -= p;
@@ -269,9 +287,11 @@ function firstMonthBreakdown(source, eb, strategy, monthlyBudget) {
 
   let rem = monthlyBudget + Math.max(0, eb.optimal) + Math.max(0, eb.oneTime || 0);
 
-  // Apply floors (skip deferred)
-  for (const d of pool) {
-    if (rem > 0.005 && !isDeferredM1(d)) {
+  // Apply floors (skip deferred), sorted by safety priority
+  const floorOrdered = pool.filter(d => !isDeferredM1(d));
+  floorSort(floorOrdered);
+  for (const d of floorOrdered) {
+    if (rem > 0.005) {
       const p = Math.min(getFloor(d), d.b, rem);
       d.alloc += p;
       rem -= p;
@@ -349,9 +369,11 @@ function buildSchedule(source, eb, strategy, monthlyBudget) {
     const paid = {};
     for (const d of pool) paid[d.id] = 0;
 
-    // Floors (skip deferred)
-    for (const d of pool) {
-      if (d.b > 0 && rem > 0.005 && !isDeferred(d, mo)) {
+    // Floors (skip deferred), sorted by safety priority
+    const floorOrdered = pool.filter(d => d.b > 0 && !isDeferred(d, mo));
+    floorSort(floorOrdered);
+    for (const d of floorOrdered) {
+      if (rem > 0.005) {
         const p = Math.min(getFloor(d), d.b, rem);
         d.b -= p; rem -= p; paid[d.id] += p;
       }
