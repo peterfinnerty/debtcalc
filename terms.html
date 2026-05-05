@@ -33,6 +33,10 @@
       transition: all 0.25s ease; white-space: nowrap;
     }
     .btn-back:hover { border-color: var(--text-muted); color: var(--text); }
+    @media (max-width: 600px) {
+      header { padding: 14px 16px; }
+      header h1 span { display: none; }
+    }
     main { max-width: 660px; margin: 48px auto; padding: 0 24px 80px; }
     h1 { font-size: 1.75rem; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.02em; }
     .updated { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 32px; }

@@ -998,6 +998,13 @@
       header h1 span { display: none; }
       .header-how { display: none; }
       .header-how-icon { display: inline-flex; }
+      .share-label-extra { display: none; }
+
+      /* Empty-state checklist: allow labels to wrap so they don't overflow the card */
+      .empty-card { padding-left: 20px; padding-right: 20px; }
+      .cl-item { grid-template-columns: 22px 1fr auto; gap: 10px; padding: 12px 4px; }
+      .cl-label { white-space: normal; font-size: 14px; line-height: 1.35; }
+      .cl-label-wrap { width: auto; }
 
       /* Page gutters */
       .left-panel, .right-panel { padding: 16px; }
@@ -1018,12 +1025,28 @@
       /* Chart card */
       .chart-card { padding: 16px 16px 18px; }
 
-      /* Summary stats: keep 3-col on phone with smaller gap */
-      .summary-grid { grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-      .summary-card { padding: 10px 10px 12px; }
-      .s-label { font-size: 0.6rem; }
-      .s-value { font-size: 1.4rem; }
-      .s-sub { font-size: 0.68rem; }
+      /* Summary stats on phone: 2-col with the third card spanning full width
+         so labels and sub-lines stop wrapping awkwardly */
+      .summary-grid { grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+      .summary-card { padding: 12px 14px 14px; }
+      .summary-card:last-child { grid-column: 1 / -1; }
+      .s-label { font-size: 0.62rem; }
+      .s-value { font-size: 1.35rem; margin-top: 6px; }
+      .s-sub { font-size: 0.72rem; margin-top: 4px; }
+
+      /* Monthly payment priority cards: stack content vertically so the
+         extra-payment pill, balance text, and principal/interest line
+         no longer fight for horizontal space */
+      .breakdown-row { flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 14px; }
+      .breakdown-row .breakdown-name { display: flex; flex-direction: column; gap: 4px; min-width: 0; width: 100%; }
+      .breakdown-row .breakdown-name > div { gap: 6px; }
+      .breakdown-right { flex-direction: row; align-items: baseline; justify-content: space-between; width: 100%; gap: 10px; }
+      .breakdown-amount { font-size: 0.95rem; }
+      .pi-labels { white-space: normal; text-align: right; }
+
+      /* A bit more breathing room between result sections */
+      #chartBlock > .fade-in,
+      #chartBlock > .chart-card { margin-bottom: 18px !important; }
 
       /* Strategy toggle card padding shrinks */
       .tabs-section { padding: 16px; }
@@ -1042,11 +1065,20 @@
         border-radius: var(--r-xl) var(--r-xl) 0 0;
         padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
         box-shadow: var(--shadow-sheet);
-        transition: transform 360ms cubic-bezier(.34,1.4,.64,1);
+        transition: transform 360ms cubic-bezier(.34,1.4,.64,1),
+                    visibility 0s linear 360ms;
         z-index: 200;
+        /* Hide while closed so the closed sheet can't bleed through if a
+           transformed ancestor breaks position:fixed (e.g. fade-in animation
+           leaves a transform on .chart-card). The visibility transition
+           delays hiding until the slide-out completes. */
+        visibility: hidden;
       }
       .extra-modal.open {
         transform: translateY(0);
+        visibility: visible;
+        transition: transform 360ms cubic-bezier(.34,1.4,.64,1),
+                    visibility 0s linear 0s;
       }
       .em-title { font-size: 0.85rem; margin-bottom: 18px; text-align: center; }
       .em-amount-row { margin-bottom: 12px; }
@@ -1081,7 +1113,7 @@
 
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(10px); }
-      to   { opacity: 1; transform: translateY(0); }
+      to   { opacity: 1; transform: none; }
     }
     .fade-in { animation: fadeUp 0.35s ease both; }
 
@@ -1117,7 +1149,7 @@
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
         <path d="M9.5 1.5L12.5 4.5L9.5 7.5M12.5 4.5H5C3.6 4.5 2.5 5.6 2.5 7v5.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      Share my plan
+      Share<span class="share-label-extra">&nbsp;my plan</span>
     </button>
   </div>
 </header>
