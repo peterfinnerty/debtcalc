@@ -545,6 +545,7 @@
       border-top: 1px solid #EFE7D5;
     }
     .cl-done .cl-label { color: #8A8377; }
+    .cl-done .cl-num   { color: #8A8377; }
     .cl-num-wrap { position: relative; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; }
     .cl-num { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; color: #4D483E; transition: color 240ms ease, transform 200ms cubic-bezier(.34,1.6,.64,1); }
     .cl-done .cl-num { animation: cl-num-pop 420ms cubic-bezier(.34,1.7,.64,1); }
@@ -554,11 +555,22 @@
       65%  { transform: scale(0.94) rotate(4deg); }
       100% { transform: scale(1.05) rotate(0); }
     }
-    .cl-label-wrap { position: relative; display: inline-block; justify-self: start; width: max-content; max-width: 100%; }
-    .cl-label { font-size: 14.5px; color: #1A1815; font-weight: 450; transition: color 240ms ease; position: relative; z-index: 1; white-space: nowrap; }
-    .cl-scratch { position: absolute; left: -6px; right: -6px; top: 50%; transform: translateY(-50%); width: calc(100% + 12px); height: 22px; pointer-events: none; overflow: visible; z-index: 2; }
-    .cl-scratch-path { stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke-dashoffset 220ms cubic-bezier(.4,0,.6,1); }
-    .cl-done .cl-scratch-path { stroke-dashoffset: 0; transition: stroke-dashoffset 520ms cubic-bezier(.65,.05,.36,1) 80ms; }
+    .cl-label-wrap { position: relative; justify-self: start; min-width: 0; max-width: 100%; }
+    .cl-label {
+      font-size: 14.5px; color: #1A1815; font-weight: 450;
+      transition: color 240ms ease;
+      background-repeat: repeat-x;
+      background-position: 0 60%;
+      background-size: 60px 14px;
+      -webkit-box-decoration-break: clone;
+      box-decoration-break: clone;
+    }
+    /* Strikethrough renders per-line via background-image so wrapped labels
+       still get a strike on each visual line. */
+    .cl-done .cl-label {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 14' preserveAspectRatio='none'><path d='M2,7 C12,2 18,12 30,7 C42,2 48,12 58,7' fill='none' stroke='%23D97742' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    }
+    .cl-scratch { display: none; }
     .cl-hint {
       font-size: 12px; color: var(--green);
       background: var(--green-light); border: 1px solid rgba(90,138,106,0.25);
@@ -1083,22 +1095,6 @@
       .cl-item { grid-template-columns: 22px 1fr auto; gap: 10px; padding: 12px 4px; }
       .cl-label { white-space: normal; font-size: 14px; line-height: 1.35; }
       .cl-label-wrap { width: auto; }
-
-      /* Strikethrough: SVG can't span multiple lines, so on mobile use native
-         text-decoration which renders on each line of wrapped text. */
-      .cl-scratch { display: none; }
-      .cl-label {
-        background-image: none;
-        background-repeat: repeat-x;
-        background-position: 0 60%;
-        background-size: 60px 14px;
-        -webkit-box-decoration-break: clone;
-        box-decoration-break: clone;
-        transition: color 240ms ease;
-      }
-      .cl-done .cl-label {
-        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 14' preserveAspectRatio='none'><path d='M2,7 C12,2 18,12 30,7 C42,2 48,12 58,7' fill='none' stroke='%23D97742' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
-      }
 
       /* Page gutters */
       .left-panel, .right-panel { padding: 16px; }
