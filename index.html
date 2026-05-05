@@ -1036,12 +1036,42 @@
         left: 16px; right: 16px;
         bottom: calc(16px + env(safe-area-inset-bottom));
         width: auto;
+        justify-content: center;
         z-index: 20;
         box-shadow: 0 4px 16px rgba(0,0,0,0.15);
       }
 
       /* Chart card */
       .chart-card { padding: 16px 16px 18px; }
+      /* Savings callout: on desktop it's absolutely centered in the header,
+         which overlaps the title on a narrow viewport. Let it wrap to its
+         own row below the title + Show/Pay buttons instead. Use block
+         layout so the inline children can flow naturally without flex
+         shrinking each span and forcing per-word wraps. */
+      .savings-callout {
+        position: static;
+        transform: none;
+        display: block;
+        margin-top: 8px;
+        white-space: normal;
+        flex-basis: 100%;
+        order: 3;
+        text-align: center;
+        line-height: 1.4;
+      }
+      .savings-callout .sc-dot {
+        display: inline-block;
+        vertical-align: middle;
+        margin-right: 6px;
+      }
+      /* Subtitle is redundant with chart axes on mobile and forces the
+         title block wider than the Show/Pay buttons can fit beside. */
+      .chart-subtitle { display: none; }
+      /* Tighten title + chart buttons so they fit on the same row. */
+      .chart-header { gap: 8px; }
+      .chart-title { font-size: 0.88rem; }
+      .chart-btns { gap: 6px; }
+      .extra-btn, .orig-btn { padding: 4px 8px; font-size: 0.7rem; }
 
       /* Summary stats on phone: 2-col with the third card spanning full width
          so labels and sub-lines stop wrapping awkwardly */
@@ -1102,9 +1132,10 @@
       .em-amount-row { margin-bottom: 12px; }
       .em-amount-wrap { padding: 12px 14px; }
       .em-input { font-size: 1rem; }
-      .em-freq-row { margin-bottom: 12px; }
-      .em-per { display: none; }
-      .em-select { padding-left: 42px; padding-top: 10px; padding-bottom: 10px; font-size: 0.9rem; }
+      .em-freq-row { margin-bottom: 12px; gap: 12px; }
+      .em-per { font-size: 0.95rem; color: var(--text); font-weight: 500; }
+      .em-select { flex: 0 1 auto; padding: 10px 32px 10px 14px; font-size: 0.95rem; }
+      .em-insight { text-align: center; }
       .em-slider { margin: 16px 0 4px; }
       .em-actions { gap: 12px; margin-top: 20px; flex-direction: column-reverse; }
       .em-actions button { width: 100%; height: 52px; font-size: 0.95rem; }
@@ -1379,7 +1410,7 @@
   </div>
 </div>
 
-<script src="app.js?v=38"></script>
+<script src="app.js?v=40"></script>
 <div id="infoTooltip"></div>
 </body>
 </html>

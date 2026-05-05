@@ -1068,16 +1068,26 @@ function isMobileViewport() {
 }
 
 function anchorChartToTopbar() {
-  const el = document.getElementById('chartBlock');
-  if (!el) return;
+  const card = document.querySelector('.chart-card');
+  if (!card) return;
   const body = document.scrollingElement || document.documentElement;
-  const elTop = el.getBoundingClientRect().top;
-  const bodyTop = body.getBoundingClientRect().top;
-  const target = Math.max(0, body.scrollTop + (elTop - bodyTop) - 12);
-  // requestAnimationFrame to ensure layout is settled before measuring
-  requestAnimationFrame(() => {
-    body.scrollTo({ top: target, behavior: 'smooth' });
-  });
+  // Wait for the modal to finish opening so we can measure its height
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const modal = document.getElementById('extraModal');
+    const header = document.querySelector('header');
+    const headerH = header ? header.getBoundingClientRect().height : 56;
+    const modalH = modal ? modal.getBoundingClientRect().height : 0;
+    const cardRect = card.getBoundingClientRect();
+    const visibleTop = headerH + 8;
+    const visibleBottom = window.innerHeight - modalH - 8;
+    const visibleHeight = visibleBottom - visibleTop;
+    // If the chart fits, center it in the visible area; otherwise pin its top.
+    const offset = cardRect.height <= visibleHeight
+      ? visibleTop + (visibleHeight - cardRect.height) / 2
+      : visibleTop;
+    const target = Math.max(0, body.scrollTop + cardRect.top - offset);
+    window.scrollTo({ top: target, behavior: 'smooth' });
+  }));
 }
 
 // Portal slot — remembers where the modal originally lived so we can put it back
@@ -1196,6 +1206,7 @@ function commitExtra() {
   addExtra({ amount: previewAmount, freq: previewFreq, targetId: null });
   previewHistory = null;
   document.getElementById('extraModal').classList.remove('open', 'has-insight');
+  document.getElementById('sheetBackdrop')?.classList.remove('open');
   document.getElementById('extraBtn').classList.remove('active');
   document.getElementById('emInsight').style.display = 'none';
   document.getElementById('previewCallout').style.display = 'none';

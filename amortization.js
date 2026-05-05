@@ -112,8 +112,7 @@ function render() {
   if (!simCache.snowball)  simCache.snowball  = simulate(valid, eb, 'snowball',  mb);
   const av = simCache.avalanche, sb = simCache.snowball;
   const identical = av && sb && av.months === sb.months && Math.abs(av.interest - sb.interest) < 1;
-  document.getElementById('tabsWrap').style.display          = identical ? 'none' : '';
-  document.getElementById('strategiesSameNote').style.display = identical ? '' : 'none';
+  document.getElementById('tabsWrap').style.display = identical ? 'none' : '';
 
   const simResult = activeTab === 'avalanche' ? av : sb;
   if (!scheduleCache[activeTab]) scheduleCache[activeTab] = buildSchedule(valid, eb, activeTab, mb);
