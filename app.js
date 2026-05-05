@@ -191,20 +191,16 @@ function updateCardForType(id, type) {
   switch (type) {
     case 'student_loan': {
       const lt = debt.loanType || 'federal';
+      const fedTip = 'Federal loans have forgiveness options that can change the math significantly. See studentaid.gov for details.';
       if (bottomFieldsEl) {
         bottomFieldsEl.innerHTML = `
           <div class="plan-toggle" style="margin-top:10px">
-            <button class="plan-btn${lt==='federal'?' active':''}" data-action="set-loan-type" data-id="${id}" data-value="federal">Federal</button>
+            <button class="plan-btn${lt==='federal'?' active':''}" data-action="set-loan-type" data-id="${id}" data-value="federal">Federal <span class="info-tooltip" data-tip="${fedTip}" style="margin-left:4px"><i class="info-icon">i</i></span></button>
             <button class="plan-btn${lt==='private'?' active':''}" data-action="set-loan-type" data-id="${id}" data-value="private">Private</button>
           </div>`;
       }
-      if (lt === 'federal') {
-        calloutEl.className = 'debt-callout blue show';
-        calloutEl.innerHTML = 'Federal loans have forgiveness options that can change the math significantly. <a href="https://studentaid.gov/loan-simulator" target="_blank">Check studentaid.gov</a> to understand your options.';
-      } else {
-        calloutEl.className = 'debt-callout';
-        calloutEl.innerHTML = '';
-      }
+      calloutEl.className = 'debt-callout';
+      calloutEl.innerHTML = '';
       break;
     }
     default:
@@ -294,18 +290,8 @@ function setStudentLoanType(id, lt) {
   if (!debt) return;
   debt.loanType = lt;
   document.querySelectorAll(`#bottomFields-${id} .plan-btn`).forEach(btn => {
-    btn.classList.toggle('active', (lt==='federal' && btn.textContent==='Federal') || (lt==='private' && btn.textContent==='Private'));
+    btn.classList.toggle('active', btn.dataset.value === lt);
   });
-  const callout = document.getElementById('callout-' + id);
-  if (callout) {
-    if (lt === 'federal') {
-      callout.className = 'debt-callout blue show';
-      callout.innerHTML = 'Federal loans have forgiveness options that can change the math significantly. <a href="https://studentaid.gov/loan-simulator" target="_blank">Check studentaid.gov</a> to understand your options.';
-    } else {
-      callout.className = 'debt-callout';
-      callout.innerHTML = '';
-    }
-  }
   bump();
 }
 
@@ -491,9 +477,13 @@ document.getElementById('debtsList').addEventListener('click', e => {
   const removeBtn = e.target.closest('[data-action="remove-debt"]');
   if (removeBtn) { e.stopPropagation(); removeDebt(+removeBtn.dataset.id); return; }
 
-  // Student loan type toggle
+  // Student loan type toggle (skip if click was on the info icon inside the button)
   const loanTypeBtn = e.target.closest('[data-action="set-loan-type"]');
-  if (loanTypeBtn) { setStudentLoanType(+loanTypeBtn.dataset.id, loanTypeBtn.dataset.value); return; }
+  if (loanTypeBtn) {
+    if (e.target.closest('[data-tip]')) return;
+    setStudentLoanType(+loanTypeBtn.dataset.id, loanTypeBtn.dataset.value);
+    return;
+  }
 
   // Toggle card open/closed
   const header = e.target.closest('[data-action="toggle"]');
