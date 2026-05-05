@@ -427,9 +427,23 @@
     .extra-card input, .extra-card select { border-color: #c0dcc8; background: white; }
     .extra-card input:focus, .extra-card select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(90,138,106,0.15); }
     .extra-card-header {
-      display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; margin-bottom: 12px; min-height: 24px;
+      cursor: pointer;
     }
-    .extra-card-label { font-size: 0.72rem; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: 0.06em; }
+    .extra-card-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+    .extra-card-header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .extra-card-label { font-size: 0.72rem; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: 0.06em; flex-shrink: 0; }
+    .extra-card-summary {
+      display: none;
+      font-size: 0.78rem; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+    }
+    .extra-card.collapsed { padding: 14px 16px; }
+    .extra-card.collapsed .extra-card-header { margin-bottom: 0; }
+    .extra-card.collapsed .extra-card-summary { display: inline-block; }
+    .extra-card.collapsed .extra-card-label { color: var(--text-muted); }
+    .extra-card.collapsed .debt-chevron { transform: rotate(180deg); }
     .btn-add-extra {
       width: 100%; padding: 10px;
       background: none; border: 1px solid #c0dcc8;
@@ -497,7 +511,7 @@
       background: #FFFFFF;
       border: 1px solid #E5DDCD;
       border-radius: 14px;
-      padding: 40px 36px 12px;
+      padding: 40px 36px 18px;
       text-align: center;
       width: 520px;
       max-width: 100%;
@@ -557,15 +571,18 @@
       background: #D97742; color: #FFF6EC;
       font: inherit; font-size: 14px; font-weight: 600; letter-spacing: 0.005em;
       padding: 12px 22px; border-radius: 999px;
-      margin: 14px auto 0;
-      display: inline-flex; align-items: center; gap: 10px;
+      margin: 18px auto 0;
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
       cursor: pointer;
       box-shadow: 0 1px 0 rgba(0,0,0,0.06), 0 6px 16px -8px rgba(217,119,66,0.55);
-      transition: transform 200ms cubic-bezier(.34,1.6,.64,1), box-shadow 200ms ease, background 160ms ease, opacity 200ms ease;
-      animation: calc-btn-in 360ms cubic-bezier(.34,1.5,.64,1);
+      /* Hidden by default — slides/fades in when .is-visible is added */
+      opacity: 0; transform: scale(0.95);
+      pointer-events: none;
+      transition: transform 240ms cubic-bezier(.34,1.5,.64,1), opacity 200ms ease, box-shadow 200ms ease, background 160ms ease;
     }
-    .calc-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 1px 0 rgba(0,0,0,0.06), 0 10px 22px -10px rgba(217,119,66,0.7); }
-    .calc-btn:active:not(:disabled) { transform: translateY(0); }
+    .calc-btn.is-visible { opacity: 1; transform: scale(1); pointer-events: auto; }
+    .calc-btn.is-visible:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 1px 0 rgba(0,0,0,0.06), 0 10px 22px -10px rgba(217,119,66,0.7); }
+    .calc-btn.is-visible:active:not(:disabled) { transform: translateY(0); }
     .calc-btn:disabled { cursor: progress; opacity: 0.92; }
     .calc-btn.is-calculating { background: #C66D3C; }
     .calc-arrow { font-size: 16px; display: inline-block; transition: transform 220ms cubic-bezier(.34,1.6,.64,1); }
@@ -575,15 +592,11 @@
       border: 2px solid rgba(255,246,236,0.35); border-top-color: #FFF6EC;
       animation: calc-spin 720ms linear infinite;
     }
-    @keyframes calc-btn-in {
-      from { opacity: 0; transform: translateY(6px) scale(0.96); }
-      to   { opacity: 1; transform: translateY(0) scale(1); }
-    }
     @keyframes calc-spin { to { transform: rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) {
       .cl-scratch-path, .cl-num { transition: none; }
       .cl-done .cl-num { animation: none; }
-      .calc-btn { animation: none; transition: none; }
+      .calc-btn { transition: none; }
       .calc-spinner { animation: none; border-top-color: rgba(255,246,236,0.6); }
     }
 
@@ -1093,21 +1106,26 @@
       [id^="bottomFields-"] .plan-toggle { margin-top: 16px !important; }
       .more-section:not(.past-due-only) { margin-top: 12px; }
 
-      /* Empty-state card. Reserve space for the fixed calc CTA only when it's
-         actually visible — otherwise the card has dead space below the checklist. */
-      .empty-card { padding: 20px; }
-      .empty-card:has(#calcBtn[style*="inline-flex"]) { padding-bottom: 100px; }
+      /* Bigger collapse tap target on mobile so it's comfortable to hit */
+      .debt-card.collapsed, .extra-card.collapsed { padding: 16px; }
+      .debt-card.collapsed .debt-card-header,
+      .extra-card.collapsed .extra-card-header { min-height: 28px; }
 
-      /* Sticky bottom calc CTA — only when #calcBtn is visible (pre-reveal) */
-      #calcBtn {
+      .empty-card { padding: 20px; }
+
+      /* Floating mobile CTA — always rendered; slides up from below the
+         viewport when the checklist completes, slides back down otherwise. */
+      .calc-btn {
         position: fixed;
         left: 16px; right: 16px;
         bottom: calc(16px + env(safe-area-inset-bottom));
-        width: auto;
-        justify-content: center;
+        width: auto; margin: 0;
         z-index: 20;
         box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        /* Override the desktop scale-fade with a translate slide */
+        transform: translateY(calc(100% + 32px));
       }
+      .calc-btn.is-visible { transform: translateY(0); }
 
       /* Chart card */
       .chart-card { padding: 16px 16px 18px; }
@@ -1346,10 +1364,6 @@
             <span class="cl-hint" id="hintDebts">0 added</span>
           </li>
         </ul>
-        <button class="calc-btn" id="calcBtn" style="display:none">
-          <span>See my path to zero</span>
-          <span class="calc-arrow" aria-hidden="true">→</span>
-        </button>
         <div class="empty-privacy" aria-label="Privacy">
           <svg width="10" height="12" viewBox="0 0 10 12" fill="none" aria-hidden="true">
             <rect x="1.25" y="5" width="7.5" height="6" rx="1.2" stroke="currentColor" stroke-width="1" fill="none"/>
@@ -1358,6 +1372,10 @@
           <span>We don't save your data</span>
         </div>
       </div>
+      <button class="calc-btn" id="calcBtn">
+        <span>See my path to zero</span>
+        <span class="calc-arrow" aria-hidden="true">→</span>
+      </button>
     </div>
 
     <div id="results">
@@ -1485,7 +1503,7 @@
   </div>
 </div>
 
-<script src="app.js?v=56"></script>
+<script src="app.js?v=57"></script>
 <div id="infoTooltip"></div>
 </body>
 </html>

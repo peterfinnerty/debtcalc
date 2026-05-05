@@ -682,42 +682,56 @@ function makeExtraCard(eid) {
   const ex = extras.find(e => e.eid === eid);
   const targetOptions = buildTargetOptions(ex?.targetId);
   el.innerHTML = `
-    <div class="extra-card-header">
-      <span class="extra-card-label">Extra payment</span>
-      <button class="btn-remove" data-action="remove-extra" data-eid="${eid}">
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-          <path d="M1.5 1.5l10 10M11.5 1.5l-10 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
-      </button>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label>Amount</label>
-        <div class="input-wrap has-prefix">
-          <span class="input-prefix">$</span>
-          <input type="text" inputmode="decimal" placeholder="100" data-efield="amount" data-eid="${eid}" autocomplete="off">
+    <div class="extra-card-header" data-action="toggle-extra" data-eid="${eid}">
+      <div class="extra-card-header-left">
+        <span class="extra-card-label">Extra payment</span>
+        <div class="extra-card-summary" id="extraSummary-${eid}">
+          <span class="extra-summary-amount" id="extraSummaryAmt-${eid}">—</span>
         </div>
       </div>
-      <div class="field">
-        <label>Frequency</label>
-        <select data-efield="freq" data-eid="${eid}">
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-          <option value="monthly" selected>Monthly</option>
-          <option value="quarterly">Every 3 months</option>
-          <option value="biannually">Every 6 months</option>
-          <option value="yearly">Yearly</option>
-          <option value="one_time">One time</option>
-        </select>
+      <div class="extra-card-header-right">
+        <button class="btn-remove" id="btnRemoveExtra-${eid}" data-action="remove-extra" data-eid="${eid}">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M1.5 1.5l10 10M11.5 1.5l-10 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <span class="debt-chevron" id="extraChevron-${eid}">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
       </div>
     </div>
-    <div class="field-row full" style="margin-top:8px">
-      <div class="field">
-        <label>Apply to</label>
-        <select data-efield="targetId" data-eid="${eid}">${targetOptions}</select>
+    <div class="extra-card-body" id="extraBody-${eid}">
+      <div class="field-row">
+        <div class="field">
+          <label>Amount</label>
+          <div class="input-wrap has-prefix">
+            <span class="input-prefix">$</span>
+            <input type="text" inputmode="decimal" placeholder="100" data-efield="amount" data-eid="${eid}" autocomplete="off">
+          </div>
+        </div>
+        <div class="field">
+          <label>Frequency</label>
+          <select data-efield="freq" data-eid="${eid}">
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly" selected>Monthly</option>
+            <option value="quarterly">Every 3 months</option>
+            <option value="biannually">Every 6 months</option>
+            <option value="yearly">Yearly</option>
+            <option value="one_time">One time</option>
+          </select>
+        </div>
       </div>
-    </div>
-    <div class="extra-rec" id="rec-${eid}"></div>`;
+      <div class="field-row full" style="margin-top:8px">
+        <div class="field">
+          <label>Apply to</label>
+          <select data-efield="targetId" data-eid="${eid}">${targetOptions}</select>
+        </div>
+      </div>
+      <div class="extra-rec" id="rec-${eid}"></div>
+    </div>`;
   return el;
 }
 
@@ -737,6 +751,10 @@ function addExtra(pre = {}) {
   const eligible = debts.filter(d => d.balance > 0);
   const autoTarget = eligible.length === 1 ? eligible[0].id : null;
   const targetId = pre.targetId != null ? pre.targetId : autoTarget;
+
+  // Collapse existing cards before adding the new one (mirrors debt-card behavior)
+  if (extras.length > 0) collapseAllExtras();
+
   extras.push({ eid, amount: +pre.amount || 0, freq: pre.freq || 'monthly', targetId });
   const card = makeExtraCard(eid);
   document.getElementById('extrasList').appendChild(card);
@@ -753,6 +771,53 @@ function removeExtra(eid) {
   extras = extras.filter(e => e.eid !== eid);
   document.querySelector(`.extra-card[data-eid="${eid}"]`)?.remove();
   bump();
+}
+
+const FREQ_ABBR = { daily:'/day', weekly:'/wk', monthly:'/mo', quarterly:'/qtr', biannually:'/6mo', yearly:'/yr', one_time:' one-time' };
+
+function updateExtraSummary(eid) {
+  const ex = extras.find(e => e.eid === eid);
+  if (!ex) return;
+  const amtEl = document.getElementById('extraSummaryAmt-' + eid);
+  if (!amtEl) return;
+  const amt = ex.amount > 0 ? '$' + ex.amount.toLocaleString('en-US') + (FREQ_ABBR[ex.freq] || '') : 'Not set';
+  let target = 'Whatever is optimal';
+  if (ex.targetId) {
+    const debt = debts.find(d => d.id == ex.targetId);
+    if (debt) target = debt.name || ('Debt ' + (debts.indexOf(debt) + 1));
+  }
+  amtEl.textContent = ex.amount > 0 ? `${amt} · ${target}` : amt;
+}
+
+function toggleExtra(eid) {
+  const card = document.querySelector(`.extra-card[data-eid="${eid}"]`);
+  const body = document.getElementById('extraBody-' + eid);
+  const remove = document.getElementById('btnRemoveExtra-' + eid);
+  if (!card || !body) return;
+  const isCollapsed = card.classList.contains('collapsed');
+  if (isCollapsed) {
+    card.classList.remove('collapsed');
+    body.style.display = '';
+    if (remove) remove.style.display = '';
+  } else {
+    updateExtraSummary(eid);
+    card.classList.add('collapsed');
+    body.style.display = 'none';
+    if (remove) remove.style.display = 'none';
+  }
+}
+
+function collapseAllExtras() {
+  extras.forEach(e => {
+    const card = document.querySelector(`.extra-card[data-eid="${e.eid}"]`);
+    const body = document.getElementById('extraBody-' + e.eid);
+    const remove = document.getElementById('btnRemoveExtra-' + e.eid);
+    if (!card || card.classList.contains('collapsed')) return;
+    updateExtraSummary(e.eid);
+    card.classList.add('collapsed');
+    body.style.display = 'none';
+    if (remove) remove.style.display = 'none';
+  });
 }
 
 // Refresh target dropdowns whenever debts change
@@ -832,13 +897,18 @@ document.getElementById('extrasList').addEventListener('input', e => {
     ex.targetId = el.value || null;
     showRecommendation(eid);
   }
+  updateExtraSummary(eid);
   bump();
 });
 
 // Click delegation for extra card actions
 document.getElementById('extrasList').addEventListener('click', e => {
+  // Remove button — handle first so it doesn't bubble to the toggle
   const removeBtn = e.target.closest('[data-action="remove-extra"]');
-  if (removeBtn) { removeExtra(+removeBtn.dataset.eid); }
+  if (removeBtn) { e.stopPropagation(); removeExtra(+removeBtn.dataset.eid); return; }
+  // Toggle the card open/closed
+  const header = e.target.closest('[data-action="toggle-extra"]');
+  if (header) { toggleExtra(+header.dataset.eid); }
 });
 
 document.getElementById('addExtraBtn').addEventListener('click', () => addExtra());
@@ -1412,6 +1482,8 @@ function commitExtra() {
   if (previewAmount <= 0) { closeExtraModal(); return; }
   const isFirst = extras.every(e => e.amount <= 0);
   addExtra({ amount: previewAmount, freq: previewFreq, targetId: null });
+  // Auto-collapse the just-added card so the chart stays in view
+  toggleExtra(extraId);
   previewHistory = null;
   document.getElementById('extraModal').classList.remove('open', 'has-insight');
   document.getElementById('sheetBackdrop')?.classList.remove('open');
@@ -1496,10 +1568,11 @@ function run() {
     hintDebts.textContent = valid.length + ' added · ' + fmt(totalBal);
   }
 
-  // Show/hide the first-run CTA button
+  // Toggle visibility of the first-run CTA — class drives the slide / fade,
+  // desktop scales in place, mobile slides up from below the viewport.
   const calcBtn = document.getElementById('calcBtn');
   if (calcBtn && !hasEverRevealed && !isFirstRun) {
-    calcBtn.style.display = hasData ? 'inline-flex' : 'none';
+    calcBtn.classList.toggle('is-visible', hasData);
   }
 
   // Always update hints regardless of hasData
