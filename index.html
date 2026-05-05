@@ -142,6 +142,11 @@
       white-space: nowrap; z-index: 999;
     }
     .share-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    /* On desktop the layout is left 380px + right 1fr — shift the toast's
+       center right by half the left panel so it lands in the right panel. */
+    @media (min-width: 861px) {
+      .share-toast { left: calc(50% + 190px); }
+    }
 
     /* Layout */
     .layout {
